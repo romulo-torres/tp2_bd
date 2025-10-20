@@ -15,7 +15,9 @@ struct bloco {
     registro regs[2];
     char espaco_livre[ESPACO_LIVRE];
 
-    // métodos 
+    // métodos
+    std::string remover_aspas(std::string campo)
+
     bool eh_numero(const std::string& s);
 
     bool ler_linha(std::ifstream &entrada, std::string &linha);
