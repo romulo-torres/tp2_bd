@@ -1,4 +1,4 @@
-#ifndef BLOCO_H
+    #ifndef BLOCO_H
 #define BLOCO_H
 
 #include "registro.h"
@@ -9,10 +9,11 @@
 #include <vector>
 
 #define TAM_BLOCO 4096
+#define ESPACO_LIVRE 1080
 
 struct bloco {
     registro regs[2];
-    char espaco_livre[1078];
+    char espaco_livre[ESPACO_LIVRE];
 
     // métodos 
     bool eh_numero(const std::string& s);
