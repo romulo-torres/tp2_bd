@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
-#define TAM_REGISTRO 1509
+#define TAM_REGISTRO 1508
 
 #pragma pack(push, 1)
 struct registro {
