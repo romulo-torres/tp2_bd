@@ -17,13 +17,12 @@ struct registro {
     bool null_snippet;
     char snippet[1025];
 
-    // Construtores e métodos (apenas assinaturas)
+    // construtores e métodos 
     registro();
     registro(unsigned id_, const char* titulo_, std::uint16_t ano_,
              const char* autores_, unsigned citacoes_, const char* data_,
              bool null_snippet_, const char* snippet_);
 
-    int tamanho_registro();
 };
 #pragma pack(pop)
 

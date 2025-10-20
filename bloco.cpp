@@ -8,8 +8,6 @@
 
 #define TAM_BLOCO 4096
 
-int bloco::tam_bloco() { return TAM_BLOCO; }
-
 /* função auxiliar para tirar as aspas para processamento durante a leitura do arquivo */
 std::string remover_aspas(std::string campo){
     if(campo.size() >= 2 && campo.front() == '"' && campo.back() == '"'){
@@ -156,7 +154,7 @@ void bloco::criar_arquivo_blocos() {
     if (ind > 0) {
         std::memset(b.espaco_livre, 0, sizeof(b.espaco_livre));
         if (ind == 1){
-            std::memset(&b.regs[1], 0, regs[0].tamanho_registro());
+            std::memset(&b.regs[1], 0, TAM_REGISTRO );
         };
         destino.write(reinterpret_cast<char*>(&b), sizeof(bloco));
     }

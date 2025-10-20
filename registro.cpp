@@ -38,7 +38,3 @@ registro::registro(unsigned id_, const char* titulo_, std::uint16_t ano_,
         }
     }
 }
-
-int registro::tamanho_registro() {
-    return TAM_REGISTRO;
-}
