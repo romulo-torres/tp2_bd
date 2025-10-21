@@ -6,7 +6,10 @@
 #include <cstring>
 #include <vector>
 
-#define TAM_BLOCO 4096
+unsigned tam_bloco = 0;
+unsigned tam_espaco_livre = 0;
+unsigned num_registros = 0;
+
 
 /* função auxiliar para tirar as aspas para processamento durante a leitura do arquivo */
 std::string remover_aspas(std::string campo){
@@ -93,12 +96,10 @@ void bloco::criar_arquivo_blocos() {
     std::cout << "[INFO] Arquivo de destino criado com sucesso: " << arq_destino << std::endl;
 
     bloco b;
-    std::memset(&b, 0, sizeof(bloco));  // inicializando o bloco
     int ind = 0;        // indice para saber em que posicao do bloco colocar o registro
     int linha_num = 0;
-
-
     std::string linha;
+
     
     while(ler_linha(entrada,linha)) {
         linha_num++;
@@ -116,7 +117,6 @@ void bloco::criar_arquivo_blocos() {
         for(std::string &c : campos){
             c = remover_aspas(c);
         }
-
 
         reg.id = eh_numero(campos[0]) ? std::stoul(campos[0]) : 0;
         if (campos[1].length() > 300) {
@@ -142,26 +142,28 @@ void bloco::criar_arquivo_blocos() {
 
         b.regs[ind++] = reg;
 
-        if(ind == 2){
-            std::memset(b.espaco_livre, 0, sizeof(b.espaco_livre));
-            destino.write(reinterpret_cast<char*>(&b), sizeof(bloco));
-            std::cout << "[INFO] Bloco escrito com 2 registros (linha " << linha_num << ")\n";
+        if(ind == num_registros){
+            std::memset(b.espaco_livre, 0, tam_espaco_livre);
+            destino.write(reinterpret_cast<char*>(b.regs), num_registros * sizeof(registro));
+            destino.write(reinterpret_cast<char*>(b.espaco_livre), tam_espaco_livre);
+            std::cout << "[INFO] Bloco escrito com " << num_registros << " registros (linha " << linha_num << ")\n";
             ind = 0;
-            std::memset(&b, 0, sizeof(bloco));
+            std::memset(b.espaco_livre, 0, tam_espaco_livre);
         }
     }
 
     if (ind > 0) {
-        std::memset(b.espaco_livre, 0, sizeof(b.espaco_livre));
-        if (ind == 1){
-            std::memset(&b.regs[1], 0, TAM_REGISTRO );
-        };
-        destino.write(reinterpret_cast<char*>(&b), sizeof(bloco));
+        std::memset(b.espaco_livre, 0, tam_espaco_livre);
+        destino.write(reinterpret_cast<char*>(b.regs), ind * sizeof(registro));
+        destino.write(reinterpret_cast<char*>(b.espaco_livre), tam_espaco_livre);
+        std::cout << "[INFO] Bloco escrito incompleto com somente " << ind << " registros\n";
     }
 
     std::cout << "[INFO] Arquivo 'dados.in' preenchido com sucesso!\n";
     destino.close();
 }
+
+/* se descomentar isso da pra testar */
 
 // int main(){
 //     bloco b;
