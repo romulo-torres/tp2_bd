@@ -5,6 +5,7 @@
 #include <sstream>
 #include <cstring>
 #include <vector>
+#include <algorithm>
 
 unsigned tam_bloco = 0;
 unsigned tam_espaco_livre = 0;
@@ -26,29 +27,73 @@ bool bloco::eh_numero(const std::string& s) {
     return true;
 }
 
+static int count_substring(const std::string& str, const std::string& sub) {
+    if (sub.length() == 0) {
+        return 0;
+    }
+    int count = 0;
+    // Encontra a substring, começando do último ponto encontrado + o tamanho da substring
+    for (size_t offset = str.find(sub); offset != std::string::npos;
+         offset = str.find(sub, offset + sub.length())) {
+        ++count;
+    }
+    return count;
+}
+
+// Função auxiliar para substituir todas as ocorrências de uma substring (ex: ';;')
+static void replace_all(std::string& str, const std::string& from, const std::string& to) {
+    if(from.empty())
+        return;
+    size_t start_pos = 0;
+    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length(); // Continua a busca após a string substituída
+    }
+}
+
 /* função auxiliar para ler uma linha */
 bool bloco::ler_linha(std::ifstream &entrada, std::string &linha){
-    linha.clear(); // esvaziando a string para evitar erros por leituras passadas
-    std::string temp;
-    bool dentro_aspas = false;
 
-    while (std::getline(entrada, temp)) {
-    linha += temp;  // adiciona a linha lida à variável acumuladora
+    //linha.clear(); // esvaziando a string para evitar erros por leituras passadas
 
-    // contando aspas pra saber se está entre um campo entre aspas
-    int aspas = 0;
-    for (char c : temp){ 
-        if (c == '"'){ 
-            aspas++;
+    //linha += "\n"; // mantém o '\n' dentro de um campo entre aspas
+    // 1. Contar '";"' (separador completo)
+    // O ideal é ter 6 separadores para 7 campos.
+    int quant_separacoes = count_substring(linha, "\";\"");
+
+    if (quant_separacoes < 6) { // Se tem menos do que 6, é porque pode haver elementos vazios ou quebra de linha
+        
+        // 2. Contar ";" (separador simples, usado para verificar quebra de linha)
+        int quant_separacoes2 = std::count(linha.begin(), linha.end(), ';');
+        
+        if (quant_separacoes2 < 6) { // Se tiver menos que 6, que é o normal, então houve quebra de linha
+            
+            // O código Python lê a próxima linha e concatena, substituindo o \n
+            // por ' \ n' (espaço, barra, n) no processo de união.
+            std::string prox_linha;
+            
+            // Tentamos ler a próxima linha física
+            if (std::getline(entrada, prox_linha)) {
+                
+                // Concatena a linha atual (que não tem \n por causa do getline) 
+                // com o substituto '\ n' e a próxima linha
+                linha += " \\n" + prox_linha;
+            }
+            // Se não conseguir ler a prox_linha (fim do arquivo), a linha é escrita como está.
+            else{
+                return false;
+            }
+        } 
+        else { 
+            // Se tiver 6 ou mais ';', mas menos de 6 '";"', é porque tem elementos nulos (ex: ;;;;) ou erro de aspas.
+            // O Python substitui ';;' por ';NULL;'. 
+            replace_all(linha, ";;", ";NULL;");
+
+            // Note: Esta lógica de substituição de nulos é executada apenas se 
+            // a primeira verificação (quant_separacoes < 6) for verdadeira.
         }
     }
-    if (aspas % 2 != 0){
-        dentro_aspas = !dentro_aspas;
-    }
-    if (!dentro_aspas) break;  // linha completa lida, sai do loop
-
-    linha += '\n'; // mantém o '\n' dentro de um campo entre aspas
-    }
+    linha += '\n';
     return !linha.empty();
 }
 
@@ -66,7 +111,7 @@ void bloco::separa_csv(const std::string &linha, std::vector<std::string> &campo
             campo.clear();
         }
         else campo += c;
-    }
+    }\
     campos.push_back(campo);
 }
 
@@ -101,7 +146,9 @@ void bloco::criar_arquivo_blocos() {
     std::string linha;
 
     
-    while(ler_linha(entrada,linha)) {
+    while(std::getline(entrada, linha)) {
+        ler_linha(entrada, linha); // Lendo a linha e tratando os erro
+
         linha_num++;
         registro reg;
         reg.null_snippet = false;
@@ -109,6 +156,7 @@ void bloco::criar_arquivo_blocos() {
         std::vector<std::string> campos;
         separa_csv(linha, campos);
 
+        
         if(campos.size() < 7){
             std::cerr << "[AVISO] Linha " << linha_num << " incompleta com algum campo a menos, ignorada.\n";
             continue;
@@ -146,7 +194,7 @@ void bloco::criar_arquivo_blocos() {
             std::memset(b.espaco_livre, 0, tam_espaco_livre);
             destino.write(reinterpret_cast<char*>(b.regs), num_registros * sizeof(registro));
             destino.write(reinterpret_cast<char*>(b.espaco_livre), tam_espaco_livre);
-            std::cout << "[INFO] Bloco escrito com " << num_registros << " registros (linha " << linha_num << ")\n";
+            //std::cout << "[INFO] Bloco escrito com " << num_registros << " registros (linha " << linha_num << ")\n";
             ind = 0;
             std::memset(b.espaco_livre, 0, tam_espaco_livre);
         }
@@ -166,8 +214,8 @@ void bloco::criar_arquivo_blocos() {
 /* se descomentar isso da pra testar */
 
 // int main(){
-//     bloco b;
-//     b.criar_arquivo_blocos();
-
-//     return 0;
-// }
+//    bloco b;
+//    b.criar_arquivo_blocos();
+//
+//    return 0;
+//}
