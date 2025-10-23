@@ -42,6 +42,8 @@
         void separa_csv(const std::string &linha, std::vector<std::string> &campos);
 
         void criar_arquivo_blocos();
+        // cria arquivo usando hash extensivo (bucket_capacity = capacidade do bucket)
+        void criar_arquivo_blocos_hash(size_t bucket_capacity = 2);
     };
 
 
