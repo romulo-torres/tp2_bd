@@ -16,7 +16,7 @@ struct bloco {
     char espaco_livre[ESPACO_LIVRE];
 
     // métodos
-    std::string remover_aspas(std::string campo)
+    std::string remover_aspas(std::string campo);
 
     bool eh_numero(const std::string& s);
 
@@ -25,6 +25,8 @@ struct bloco {
     void separa_csv(const std::string &linha, std::vector<std::string> &campos);
 
     void criar_arquivo_blocos();
+    // organiza os registros por hash em um arquivo de buckets
+    void criar_arquivo_blocos_hash(size_t num_buckets = 1024);
 };
 
 
