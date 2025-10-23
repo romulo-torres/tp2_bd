@@ -1,14 +1,18 @@
 #include "registro.h"
 #include "bloco.h"
+#include "logger.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <cstring>
 #include <vector>
-#include "logger.h"
+#include <algorithm>
 #include <string>
 
-#define TAM_BLOCO 4096
+unsigned tam_bloco = 0;
+unsigned tam_espaco_livre = 0;
+unsigned num_registros = 0;
+
 
 /* função auxiliar para tirar as aspas para processamento durante a leitura do arquivo */
 std::string remover_aspas(std::string campo){
@@ -25,29 +29,73 @@ bool bloco::eh_numero(const std::string& s) {
     return true;
 }
 
+static int count_substring(const std::string& str, const std::string& sub) {
+    if (sub.length() == 0) {
+        return 0;
+    }
+    int count = 0;
+    // Encontra a substring, começando do último ponto encontrado + o tamanho da substring
+    for (size_t offset = str.find(sub); offset != std::string::npos;
+         offset = str.find(sub, offset + sub.length())) {
+        ++count;
+    }
+    return count;
+}
+
+// Função auxiliar para substituir todas as ocorrências de uma substring (ex: ';;')
+static void replace_all(std::string& str, const std::string& from, const std::string& to) {
+    if(from.empty())
+        return;
+    size_t start_pos = 0;
+    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length(); // Continua a busca após a string substituída
+    }
+}
+
 /* função auxiliar para ler uma linha */
 bool bloco::ler_linha(std::ifstream &entrada, std::string &linha){
-    linha.clear(); // esvaziando a string para evitar erros por leituras passadas
-    std::string temp;
-    bool dentro_aspas = false;
 
-    while (std::getline(entrada, temp)) {
-    linha += temp;  // adiciona a linha lida à variável acumuladora
+    //linha.clear(); // esvaziando a string para evitar erros por leituras passadas
 
-    // contando aspas pra saber se está entre um campo entre aspas
-    int aspas = 0;
-    for (char c : temp){ 
-        if (c == '"'){ 
-            aspas++;
+    //linha += "\n"; // mantém o '\n' dentro de um campo entre aspas
+    // 1. Contar '";"' (separador completo)
+    // O ideal é ter 6 separadores para 7 campos.
+    int quant_separacoes = count_substring(linha, "\";\"");
+
+    if (quant_separacoes < 6) { // Se tem menos do que 6, é porque pode haver elementos vazios ou quebra de linha
+        
+        // 2. Contar ";" (separador simples, usado para verificar quebra de linha)
+        int quant_separacoes2 = std::count(linha.begin(), linha.end(), ';');
+        
+        if (quant_separacoes2 < 6) { // Se tiver menos que 6, que é o normal, então houve quebra de linha
+            
+            // O código Python lê a próxima linha e concatena, substituindo o \n
+            // por ' \ n' (espaço, barra, n) no processo de união.
+            std::string prox_linha;
+            
+            // Tentamos ler a próxima linha física
+            if (std::getline(entrada, prox_linha)) {
+                
+                // Concatena a linha atual (que não tem \n por causa do getline) 
+                // com o substituto '\ n' e a próxima linha
+                linha += " \\n" + prox_linha;
+            }
+            // Se não conseguir ler a prox_linha (fim do arquivo), a linha é escrita como está.
+            else{
+                return false;
+            }
+        } 
+        else { 
+            // Se tiver 6 ou mais ';', mas menos de 6 '";"', é porque tem elementos nulos (ex: ;;;;) ou erro de aspas.
+            // O Python substitui ';;' por ';NULL;'. 
+            replace_all(linha, ";;", ";NULL;");
+
+            // Note: Esta lógica de substituição de nulos é executada apenas se 
+            // a primeira verificação (quant_separacoes < 6) for verdadeira.
         }
     }
-    if (aspas % 2 != 0){
-        dentro_aspas = !dentro_aspas;
-    }
-    if (!dentro_aspas) break;  // linha completa lida, sai do loop
-
-    linha += '\n'; // mantém o '\n' dentro de um campo entre aspas
-    }
+    linha += '\n';
     return !linha.empty();
 }
 
@@ -65,7 +113,7 @@ void bloco::separa_csv(const std::string &linha, std::vector<std::string> &campo
             campo.clear();
         }
         else campo += c;
-    }
+    }\
     campos.push_back(campo);
 }
 
@@ -74,13 +122,13 @@ void bloco::separa_csv(const std::string &linha, std::vector<std::string> &campo
 bom falar que não é o arquvo de dados que pede para hash, não organizei de maneira nenhuma por hash, só é um arquivo com blocos de registro*/
 void bloco::criar_arquivo_blocos() {
     // versão final tem que ler o arquivo la na pasta /data quando o repositório tiver o formato certo da especificação
-    LOG_INFO(std::string("[INPUT] Insira o nome do arquivo de entrada (deixe ele no mesmo diretório [essa parte de estar no mesmo diretório é só pra testes inciais ta?]): "));
+    LOG_INPUT("[INPUT] Insira o nome do arquivo de entrada (deixe ele no mesmo diretório [essa parte de estar no mesmo diretório é só pra testes inciais ta?]): ");
     std::string arq_origem;
     std::cin >> arq_origem;
 
     std::ifstream entrada(arq_origem);
     if(!entrada.is_open()){
-        LOG_ERROR(std::string("[ERROR] Não foi possível abrir o arquivo de origem"));
+        LOG_ERROR("[ERROR] Não foi possível abrir o arquivo de origem\n");
         return;
     }
     
@@ -88,21 +136,21 @@ void bloco::criar_arquivo_blocos() {
     std::string arq_destino = "dados.in";
     std::ofstream destino(arq_destino, std::ios::binary);
     if (!destino.is_open()) {
-        std::cerr << "[ERROR] Não foi possível criar o arquivo de destino\n" << arq_destino << std::endl;
+        LOG_ERROR(std::string("[ERROR] Não foi possível criar o arquivo de destino\n") + arq_destino);
         return;
     }
 
     LOG_INFO(std::string("[INFO] Arquivo de destino criado com sucesso: ") + arq_destino);
 
     bloco b;
-    std::memset(&b, 0, sizeof(bloco));  // inicializando o bloco
     int ind = 0;        // indice para saber em que posicao do bloco colocar o registro
     int linha_num = 0;
-
-
     std::string linha;
+
     
-    while(ler_linha(entrada,linha)) {
+    while(std::getline(entrada, linha)) {
+        ler_linha(entrada, linha); // Lendo a linha e tratando os erro
+
         linha_num++;
         registro reg;
         reg.null_snippet = false;
@@ -110,15 +158,15 @@ void bloco::criar_arquivo_blocos() {
         std::vector<std::string> campos;
         separa_csv(linha, campos);
 
+        
         if(campos.size() < 7){
-            LOG_WARNING(std::string("[AVISO] Linha ") + std::to_string(linha_num) + " incompleta com algum campo a menos, ignorada.");
+            LOG_WARNING(std::string("[AVISO] Linha ") + std::to_string(linha_num) + " incompleta com algum campo a menos, ignorada.\n");
             continue;
         }
 
         for(std::string &c : campos){
             c = remover_aspas(c);
         }
-
 
         reg.id = eh_numero(campos[0]) ? std::stoul(campos[0]) : 0;
         if (campos[1].length() > 300) {
@@ -144,30 +192,32 @@ void bloco::criar_arquivo_blocos() {
 
         b.regs[ind++] = reg;
 
-        if(ind == 2){
-            std::memset(b.espaco_livre, 0, sizeof(b.espaco_livre));
-            destino.write(reinterpret_cast<char*>(&b), sizeof(bloco));
-            LOG_INFO(std::string("[INFO] Bloco escrito com 2 registros (linha ") + std::to_string(linha_num) + ")");
+        if(ind == num_registros){
+            std::memset(b.espaco_livre, 0, tam_espaco_livre);
+            destino.write(reinterpret_cast<char*>(b.regs), num_registros * sizeof(registro));
+            destino.write(reinterpret_cast<char*>(b.espaco_livre), tam_espaco_livre);
+            //std::cout << "[INFO] Bloco escrito com " << num_registros << " registros (linha " << linha_num << ")\n";
             ind = 0;
-            std::memset(&b, 0, sizeof(bloco));
+            std::memset(b.espaco_livre, 0, tam_espaco_livre);
         }
     }
 
     if (ind > 0) {
-        std::memset(b.espaco_livre, 0, sizeof(b.espaco_livre));
-        if (ind == 1){
-            std::memset(&b.regs[1], 0, TAM_REGISTRO );
-        };
-        destino.write(reinterpret_cast<char*>(&b), sizeof(bloco));
+        std::memset(b.espaco_livre, 0, tam_espaco_livre);
+        destino.write(reinterpret_cast<char*>(b.regs), ind * sizeof(registro));
+        destino.write(reinterpret_cast<char*>(b.espaco_livre), tam_espaco_livre);
+        LOG_INFO(std::string("[INFO] Bloco escrito incompleto com somente ") + std::to_string(ind) + " registros\n");
     }
 
-    LOG_INFO(std::string("[INFO] Arquivo 'dados.in' preenchido com sucesso!"));
+    LOG_INFO("[INFO] Arquivo 'dados.in' preenchido com sucesso!\n");
     destino.close();
 }
 
-// int main(){
-//     bloco b;
-//     b.criar_arquivo_blocos();
+/* se descomentar isso da pra testar */
 
-//     return 0;
-// }
+// int main(){
+//    bloco b;
+//    b.criar_arquivo_blocos();
+//
+//    return 0;
+//}
