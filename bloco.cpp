@@ -5,6 +5,8 @@
 #include <sstream>
 #include <cstring>
 #include <vector>
+#include "logger.h"
+#include <string>
 
 #define TAM_BLOCO 4096
 
@@ -72,13 +74,13 @@ void bloco::separa_csv(const std::string &linha, std::vector<std::string> &campo
 bom falar que não é o arquvo de dados que pede para hash, não organizei de maneira nenhuma por hash, só é um arquivo com blocos de registro*/
 void bloco::criar_arquivo_blocos() {
     // versão final tem que ler o arquivo la na pasta /data quando o repositório tiver o formato certo da especificação
-    std::cout << "[INPUT] Insira o nome do arquivo de entrada (deixe ele no mesmo diretório [essa parte de estar no mesmo diretório é só pra testes inciais ta?]): ";
+    LOG_INFO(std::string("[INPUT] Insira o nome do arquivo de entrada (deixe ele no mesmo diretório [essa parte de estar no mesmo diretório é só pra testes inciais ta?]): "));
     std::string arq_origem;
     std::cin >> arq_origem;
 
     std::ifstream entrada(arq_origem);
     if(!entrada.is_open()){
-        std::cerr << "[ERROR] Não foi possível abrir o arquivo de origem\n";
+        LOG_ERROR(std::string("[ERROR] Não foi possível abrir o arquivo de origem"));
         return;
     }
     
@@ -90,7 +92,7 @@ void bloco::criar_arquivo_blocos() {
         return;
     }
 
-    std::cout << "[INFO] Arquivo de destino criado com sucesso: " << arq_destino << std::endl;
+    LOG_INFO(std::string("[INFO] Arquivo de destino criado com sucesso: ") + arq_destino);
 
     bloco b;
     std::memset(&b, 0, sizeof(bloco));  // inicializando o bloco
@@ -109,7 +111,7 @@ void bloco::criar_arquivo_blocos() {
         separa_csv(linha, campos);
 
         if(campos.size() < 7){
-            std::cerr << "[AVISO] Linha " << linha_num << " incompleta com algum campo a menos, ignorada.\n";
+            LOG_WARNING(std::string("[AVISO] Linha ") + std::to_string(linha_num) + " incompleta com algum campo a menos, ignorada.");
             continue;
         }
 
@@ -145,7 +147,7 @@ void bloco::criar_arquivo_blocos() {
         if(ind == 2){
             std::memset(b.espaco_livre, 0, sizeof(b.espaco_livre));
             destino.write(reinterpret_cast<char*>(&b), sizeof(bloco));
-            std::cout << "[INFO] Bloco escrito com 2 registros (linha " << linha_num << ")\n";
+            LOG_INFO(std::string("[INFO] Bloco escrito com 2 registros (linha ") + std::to_string(linha_num) + ")");
             ind = 0;
             std::memset(&b, 0, sizeof(bloco));
         }
@@ -159,7 +161,7 @@ void bloco::criar_arquivo_blocos() {
         destino.write(reinterpret_cast<char*>(&b), sizeof(bloco));
     }
 
-    std::cout << "[INFO] Arquivo 'dados.in' preenchido com sucesso!\n";
+    LOG_INFO(std::string("[INFO] Arquivo 'dados.in' preenchido com sucesso!"));
     destino.close();
 }
 
