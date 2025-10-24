@@ -24,6 +24,10 @@ public:
         auto now = std::chrono::system_clock::now();
         auto in_time_t = std::chrono::system_clock::to_time_t(now);
 
+    // Tempo de execução desde o início do programa (steady clock)
+    auto now_steady = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed = now_steady - startTime;
+
         // Formata a hora para [YYYY-MM-DD HH:MM:SS]
         std::stringstream ss;
         ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
@@ -42,13 +46,18 @@ public:
         // std::cout é a saída padrão
         std::ostream& output = (level == LogLevel::INFO) ? std::cout : std::cerr;
 
-        // Imprime a mensagem final formatada
-        output << "[" << timestamp << "] " << levelStr << ": " << message << std::endl;
+        // Imprime a mensagem final formatada (inclui tempo de execução em segundos)
+        std::ostringstream elapsed_ss;
+        elapsed_ss << std::fixed << std::setprecision(3) << elapsed.count();
+        output << "[" << timestamp << "] [" << elapsed_ss.str() << "s] " << levelStr << ": " << message << std::endl;
     }
 
 private:
     // Mutex estático para ser compartilhado por todas as chamadas
     static std::mutex logMutex;
+
+    // tempo de início do programa (usado para medir tempo de execução)
+    inline static std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
 
     // Função auxiliar para converter o enum em string
     static std::string levelToString(LogLevel level) {

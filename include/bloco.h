@@ -44,6 +44,8 @@
         void criar_arquivo_blocos();
         // cria arquivo usando hash extensivo (bucket_capacity = capacidade do bucket)
         void criar_arquivo_blocos_hash(size_t bucket_capacity = 2);
+        // versão que recebe o caminho do CSV (serve para usos não-interativos)
+        void criar_arquivo_blocos_hash_file(const std::string &arq_origem, size_t bucket_capacity = 2);
     };
 
 

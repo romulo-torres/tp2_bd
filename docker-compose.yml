@@ -1,0 +1,29 @@
+version: '3.8'
+services:
+  upload:
+    image: tp2
+    build: .
+    volumes:
+      - ./data:/data
+    command: ["/app/bin/upload", "/data/input.csv"]
+
+  findrec:
+    image: tp2
+    build: .
+    volumes:
+      - ./data:/data
+    command: ["/app/bin/findrec", "123"]
+
+  seek1:
+    image: tp2
+    build: .
+    volumes:
+      - ./data:/data
+    command: ["/app/bin/seek1", "123"]
+
+  seek2:
+    image: tp2
+    build: .
+    volumes:
+      - ./data:/data
+    command: ["/app/bin/seek2", "Um Título Exato"]

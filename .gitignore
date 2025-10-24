@@ -1,2 +1,8 @@
+# Generated / runtime files
 artigo.csv
-artigo.csv
+
+# Build artifacts
+obj/
+
+# Runtime data (mount this as a volume in docker-compose)
+data/

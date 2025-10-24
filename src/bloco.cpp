@@ -359,6 +359,131 @@ void bloco::criar_arquivo_blocos() {
         LOG_INFO(std::string("Metadados escritos em: ") + meta_name);
     }
 
+// versão não-interativa que recebe o caminho do CSV
+void bloco::criar_arquivo_blocos_hash_file(const std::string &arq_origem, size_t bucket_capacity){
+    std::ifstream entrada(arq_origem);
+    if(!entrada.is_open()){
+        LOG_ERROR(std::string("Não foi possível abrir o arquivo de origem: ") + arq_origem);
+        return;
+    }
+
+    std::string arq_destino = "dados_hash_ext.in";
+    std::ofstream destino(arq_destino, std::ios::binary | std::ios::trunc);
+    if (!destino.is_open()) {
+        LOG_ERROR(std::string("Não foi possível criar o arquivo de destino: ") + arq_destino);
+        return;
+    }
+
+    HashE tabela(1, static_cast<size_t>(bucket_capacity));
+    std::unordered_map<int, std::vector<registro>> key_to_regs;
+
+    auto fnv1a = [](const char* data)->int {
+        const unsigned long long FNV_prime = 1099511628211ULL;
+        unsigned long long hash = 1469598103934665603ULL;
+        for (size_t i = 0; data[i] != '\0'; ++i) {
+            hash ^= static_cast<unsigned char>(data[i]);
+            hash *= FNV_prime;
+        }
+        return static_cast<int>(hash & 0x7fffffff);
+    };
+
+    std::string linha;
+    int linha_num = 0;
+
+    while (ler_linha(entrada, linha)) {
+        linha_num++;
+        registro reg;
+        reg.null_snippet = false;
+
+        std::vector<std::string> campos;
+        separa_csv(linha, campos);
+
+        if(campos.size() < 7){
+            LOG_WARNING(std::string("Linha ") + std::to_string(linha_num) + " incompleta, ignorada.\n");
+            continue;
+        }
+
+        for(std::string &c : campos) c = remover_aspas(c);
+
+        reg.id = eh_numero(campos[0]) ? std::stoul(campos[0]) : 0;
+        if (campos[1].length() > 300) reg.titulo[0] = '\0';
+        else { std::strncpy(reg.titulo, campos[1].c_str(), sizeof(reg.titulo)-1); reg.titulo[300] = '\0'; }
+        reg.ano = eh_numero(campos[2]) ? std::stoi(campos[2]) : 0;
+        if (campos[3].length() > 150) reg.autores[0] = '\0';
+        else { std::strncpy(reg.autores, campos[3].c_str(), sizeof(reg.autores)-1); reg.autores[150] = '\0'; }
+        reg.citacoes = eh_numero(campos[4]) ? std::stoul(campos[4]) : 0;
+        std::strncpy(reg.data, campos[5].c_str(), sizeof(reg.data)-1); reg.data[19] = '\0';
+        if(campos[6].length() < 100 || campos[6].length() > 1024){ reg.null_snippet = true; reg.snippet[0]='\0'; }
+        else{ std::strncpy(reg.snippet, campos[6].c_str(), sizeof(reg.snippet)-1); reg.snippet[1024] = '\0'; }
+
+        int key = (reg.id != 0) ? static_cast<int>(reg.id) : fnv1a(reg.titulo);
+        tabela.inserir(key);
+        key_to_regs[key].push_back(reg);
+    }
+
+    auto snapshot = tabela.snapshot_buckets();
+
+    const int REGS_PER_BLOCO = 2; // conforme struct bloco
+    std::vector<bloco> blocks;
+    std::map<int, std::pair<int,int>> metadata;
+
+    for (const auto &entry : snapshot) {
+        int bucket_id = entry.first;
+        const std::list<int> &keys = entry.second;
+
+        int start_index = blocks.size();
+        int blocks_for_bucket = 0;
+
+        std::vector<registro> all_recs;
+        for (int key : keys) {
+            auto it = key_to_regs.find(key);
+            if (it != key_to_regs.end()){
+                for (const registro &r : it->second) all_recs.push_back(r);
+            }
+        }
+
+        size_t pos = 0;
+        while (pos < all_recs.size()){
+            bloco b;
+            int cnt = 0;
+            for (; cnt < REGS_PER_BLOCO && pos < all_recs.size(); ++cnt, ++pos){
+                b.regs[cnt] = all_recs[pos];
+            }
+            for (unsigned k = cnt; k < num_registros; ++k) b.regs[k] = registro();
+            std::memset(b.espaco_livre, 0, tam_espaco_livre);
+            blocks.push_back(b);
+            blocks_for_bucket++;
+        }
+
+        if (blocks_for_bucket == 0){
+            bloco b;
+            for (unsigned k = 0; k < num_registros; ++k) b.regs[k] = registro();
+            std::memset(b.espaco_livre, 0, tam_espaco_livre);
+            blocks.push_back(b);
+            blocks_for_bucket = 1;
+        }
+
+        metadata[bucket_id] = {start_index, blocks_for_bucket};
+    }
+
+    for (const bloco &b : blocks){
+        destino.write(reinterpret_cast<const char*>(&b), sizeof(bloco));
+    }
+    destino.close();
+
+    std::string meta_name = "dados_hash_ext.meta";
+    std::ofstream meta(meta_name, std::ios::trunc);
+    if (meta.is_open()){
+        for (const auto &m : metadata){
+            meta << m.first << " " << m.second.first << " " << m.second.second << "\n";
+        }
+        meta.close();
+    }
+
+    LOG_INFO(std::string("Arquivo 'dados_hash_ext.in' criado com ") + std::to_string(blocks.size()) + " blocos.\n");
+    LOG_INFO(std::string("Metadados escritos em: ") + meta_name);
+}
+
 /* se descomentar isso da pra testar */
 
 // int main(){
