@@ -8,7 +8,10 @@ OBJS := $(SRCS:.cpp=.o)
 
 BINARIES := $(BINDIR)/upload $(BINDIR)/findrec $(BINDIR)/seek1 $(BINDIR)/seek2
 
-.PHONY: all clean docker build-image
+.PHONY: all clean docker build-image docker-build docker-run-upload docker-run-findrec docker-run-seek1 docker-run-seek2
+
+
+build: all
 
 all: prepare $(BINARIES)
 
@@ -40,3 +43,22 @@ docker-build: all
 	docker build -t tp2 .
 
 build-image: docker-build
+
+# Convenience targets to run each program in a container with ./data mounted
+# Defaults:
+#  - upload: /data/input.csv
+#  - findrec: 123
+#  - seek1: 123
+#  - seek2: "Um Título Exato"
+
+docker-run-upload:
+	docker run --rm -v "$(PWD)/data:/data" tp2 ./bin/upload /data/input.csv
+
+docker-run-findrec:
+	docker run --rm -v "$(PWD)/data:/data" tp2 ./bin/findrec 123
+
+docker-run-seek1:
+	docker run --rm -v "$(PWD)/data:/data" tp2 ./bin/seek1 123
+
+docker-run-seek2:
+	docker run --rm -v "$(PWD)/data:/data" tp2 ./bin/seek2 "Um Título Exato"

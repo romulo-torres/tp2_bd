@@ -1,17 +1,4 @@
-FROM --platform=linux/amd64 debian:stable-slim AS builder
-RUN apt-get update && apt-get install -y build-essential g++ cmake make && rm -rf /var/lib/apt/lists/*
-WORKDIR /src
-COPY . /src
-RUN make all
-
-FROM --platform=linux/amd64 debian:stable-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY --from=builder /src/bin /app/bin
-RUN chmod +x /app/bin/* || true
-ENV PATH="/app/bin:${PATH}"
-VOLUME ["/data"]
-ENTRYPOINT ["/bin/bash"]FROM debian:bookworm-slim
+FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       g++ make cmake && \
@@ -20,8 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY . /app
 
-# compile usando Makefile padrão (ajuste conforme seu build)
-RUN make build
+# compile usando Makefile padrão (ajustado para chamar 'make build')
+# ensure any host-built bin/ copied by the `COPY` step is removed so
+# the container builds artifacts with the container toolchain
+RUN rm -rf bin *.o src/*.o || true && make build
 
 # diretório para dados persistentes (montado como volume)
 VOLUME ["/data"]
@@ -32,4 +21,4 @@ ENV CSV_PATH=/data/input.csv \
     LOG_LEVEL=info
 
 # por padrão, mostra ajuda dos binários
-CMD ["bash", "-lc", "echo 'Use: docker run ... upload|findrec|seek1|seek2'; ls -l bin/"]
+CMD ["bash", "-lc", "echo 'Use: docker run --rm -v $(pwd)/data:/data tp2 ./bin/upload /data/input.csv'; ls -l bin/"]
