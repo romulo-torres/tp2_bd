@@ -23,6 +23,7 @@ prepare:
 
 
 COMMON_OBJS := $(SRCDIR)/bloco.o $(SRCDIR)/registro.o $(SRCDIR)/hashE.o
+COMMON_OBJS := $(SRCDIR)/bloco.o $(SRCDIR)/registro.o $(SRCDIR)/hashE.o $(SRCDIR)/logger.o
 
 $(BINDIR)/upload: $(SRCDIR)/upload.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@

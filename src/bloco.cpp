@@ -2,6 +2,8 @@
 #include "bloco.h"
 #include "logger.h"
 #include "hashE.h"
+#include <filesystem>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -10,6 +12,9 @@
 #include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <map>
+#include <filesystem>
+#include <cstdio>
 
 unsigned tam_bloco = 0;
 unsigned tam_espaco_livre = 0;
@@ -234,8 +239,14 @@ void bloco::criar_arquivo_blocos() {
             return;
         }
 
-        // cria a tabela extensível: prof_global inicial 1
-        HashE tabela(1, static_cast<int>(bucket_capacity));
+    // prepara diretório para dados persistentes (usa DATA_DIR ou ./data)
+    std::string data_dir = std::getenv("DATA_DIR") ? std::getenv("DATA_DIR") : std::string("./data");
+    std::filesystem::create_directories(std::filesystem::path(data_dir) / "db");
+    std::string bucket_file = (std::filesystem::path(data_dir) / "db" / "buckets.dat").string();
+
+    // cria a tabela extensível em arquivo: profundidade inicial escolhida como 10 (~1024 entradas)
+    // o terceiro parâmetro é o tamanho do cache de páginas do HashE
+    HashE tabela(10, bucket_file, 1000);
 
         // map key -> registros (para armazenar dados completos)
         std::unordered_map<int, std::vector<registro>> key_to_regs;
@@ -281,12 +292,13 @@ void bloco::criar_arquivo_blocos() {
             else{ std::strncpy(reg.snippet, campos[6].c_str(), sizeof(reg.snippet)-1); reg.snippet[1024] = '\0'; }
 
             int key = (reg.id != 0) ? static_cast<int>(reg.id) : fnv1a(reg.titulo);
-            tabela.inserir(key);
+            // inserimos com offset 0 pois nesta fase só precisamos mapear chaves -> buckets
+            tabela.inserir(key, 0);
             key_to_regs[key].push_back(reg);
         }
 
-        // agrupa por buckets usando snapshot
-        auto snapshot = tabela.snapshot_buckets();
+    // agrupa por buckets usando snapshot (offset_bucket -> lista_de_chaves)
+    auto snapshot = tabela.snapshot_buckets();
 
         // preparar blocos: pack registros por bucket em blocos (regs[2] por bloco)
         const int REGS_PER_BLOCO = 2; // conforme struct bloco
@@ -294,8 +306,17 @@ void bloco::criar_arquivo_blocos() {
         // metadados: bucket_id -> (start_index, num_blocks)
         std::map<int, std::pair<int,int>> metadata;
 
+        // snapshot keys are keyed by bucket file offset (long). We'll map them to sequential
+        // integer bucket IDs for metadata output.
+        std::map<long,int> offset_to_bucketid;
+        int next_bucket_id = 0;
+
         for (const auto &entry : snapshot) {
-            int bucket_id = entry.first;
+            long bucket_offset = entry.first;
+            if (offset_to_bucketid.find(bucket_offset) == offset_to_bucketid.end()) {
+                offset_to_bucketid[bucket_offset] = next_bucket_id++;
+            }
+            int bucket_id = offset_to_bucketid[bucket_offset];
             const std::list<int> &keys = entry.second;
 
             int start_index = blocks.size();
@@ -361,12 +382,16 @@ void bloco::criar_arquivo_blocos() {
 
 // versão não-interativa que recebe o caminho do CSV
 void bloco::criar_arquivo_blocos_hash_file(const std::string &arq_origem, size_t bucket_capacity){
+    // Two-pass streaming implementation to avoid storing all records in memory.
+    namespace fs = std::filesystem;
+
     std::ifstream entrada(arq_origem);
     if(!entrada.is_open()){
         LOG_ERROR(std::string("Não foi possível abrir o arquivo de origem: ") + arq_origem);
         return;
     }
 
+    // destino final
     std::string arq_destino = "dados_hash_ext.in";
     std::ofstream destino(arq_destino, std::ios::binary | std::ios::trunc);
     if (!destino.is_open()) {
@@ -374,8 +399,18 @@ void bloco::criar_arquivo_blocos_hash_file(const std::string &arq_origem, size_t
         return;
     }
 
-    HashE tabela(1, static_cast<size_t>(bucket_capacity));
-    std::unordered_map<int, std::vector<registro>> key_to_regs;
+    // Diretório temporário para arquivos por bucket
+    const std::string db_dir = "data/db";
+    const std::string tmp_dir = db_dir + "/buckets_tmp";
+    try { fs::create_directories(tmp_dir); } catch (...) { /* ignore */ }
+
+    // --- PASSO 1: construir tabela de hash apenas com as chaves ---
+    std::string data_dir = std::getenv("DATA_DIR") ? std::getenv("DATA_DIR") : std::string("./data");
+    std::filesystem::create_directories(std::filesystem::path(data_dir) / "db");
+    std::string bucket_file = (std::filesystem::path(data_dir) / "db" / "buckets.dat").string();
+
+    // Use extensible hash with initial global depth = 10 (~1024 directory entries)
+    HashE tabela(10, bucket_file, 1000);
 
     auto fnv1a = [](const char* data)->int {
         const unsigned long long FNV_prime = 1099511628211ULL;
@@ -389,88 +424,157 @@ void bloco::criar_arquivo_blocos_hash_file(const std::string &arq_origem, size_t
 
     std::string linha;
     int linha_num = 0;
+    // Rewind input stream: we are at begin so OK. Read all keys.
+    while (ler_linha(entrada, linha)) {
+        linha_num++;
+        std::vector<std::string> campos;
+        separa_csv(linha, campos);
+        if (campos.size() < 7) continue;
+        for (std::string &c : campos) c = remover_aspas(c);
+
+        registro reg;
+        reg.id = eh_numero(campos[0]) ? std::stoul(campos[0]) : 0;
+        if (campos[1].length() > 300) reg.titulo[0] = '\0';
+        else { std::strncpy(reg.titulo, campos[1].c_str(), sizeof(reg.titulo)-1); reg.titulo[300]='\0'; }
+
+        int key = (reg.id != 0) ? static_cast<int>(reg.id) : fnv1a(reg.titulo);
+    tabela.inserir(key, 0);
+    }
+
+    // snapshot: bucket_offset -> list of keys
+    auto snapshot = tabela.snapshot_buckets();
+
+    // map bucket file offset -> sequential bucket id (int) and key -> bucket id
+    std::map<long,int> offset_to_bucketid;
+    std::unordered_map<int,int> key_to_bucket;
+    int next_bucket_id = 0;
+    for (const auto &entry : snapshot){
+        long bucket_offset = entry.first;
+        if (offset_to_bucketid.find(bucket_offset) == offset_to_bucketid.end()) {
+            offset_to_bucketid[bucket_offset] = next_bucket_id++;
+        }
+        int bucket_id = offset_to_bucketid[bucket_offset];
+        for (int k : entry.second) key_to_bucket[k] = bucket_id;
+    }
+
+    // --- PASSO 2: stream de registros para arquivos temporários por bucket ---
+    // Rewind file to beginning
+    entrada.clear();
+    entrada.seekg(0);
+    linha_num = 0;
 
     while (ler_linha(entrada, linha)) {
         linha_num++;
         registro reg;
         reg.null_snippet = false;
-
         std::vector<std::string> campos;
         separa_csv(linha, campos);
-
-        if(campos.size() < 7){
-            LOG_WARNING(std::string("Linha ") + std::to_string(linha_num) + " incompleta, ignorada.\n");
-            continue;
-        }
-
-        for(std::string &c : campos) c = remover_aspas(c);
+        if (campos.size() < 7) continue;
+        for (std::string &c : campos) c = remover_aspas(c);
 
         reg.id = eh_numero(campos[0]) ? std::stoul(campos[0]) : 0;
         if (campos[1].length() > 300) reg.titulo[0] = '\0';
-        else { std::strncpy(reg.titulo, campos[1].c_str(), sizeof(reg.titulo)-1); reg.titulo[300] = '\0'; }
+        else { std::strncpy(reg.titulo, campos[1].c_str(), sizeof(reg.titulo)-1); reg.titulo[300]='\0'; }
         reg.ano = eh_numero(campos[2]) ? std::stoi(campos[2]) : 0;
         if (campos[3].length() > 150) reg.autores[0] = '\0';
-        else { std::strncpy(reg.autores, campos[3].c_str(), sizeof(reg.autores)-1); reg.autores[150] = '\0'; }
+        else { std::strncpy(reg.autores, campos[3].c_str(), sizeof(reg.autores)-1); reg.autores[150]='\0'; }
         reg.citacoes = eh_numero(campos[4]) ? std::stoul(campos[4]) : 0;
         std::strncpy(reg.data, campos[5].c_str(), sizeof(reg.data)-1); reg.data[19] = '\0';
-        if(campos[6].length() < 100 || campos[6].length() > 1024){ reg.null_snippet = true; reg.snippet[0]='\0'; }
-        else{ std::strncpy(reg.snippet, campos[6].c_str(), sizeof(reg.snippet)-1); reg.snippet[1024] = '\0'; }
+        if (campos[6].length() < 100 || campos[6].length() > 1024) { reg.null_snippet = true; reg.snippet[0] = '\0'; }
+        else { std::strncpy(reg.snippet, campos[6].c_str(), sizeof(reg.snippet)-1); reg.snippet[1024] = '\0'; }
 
         int key = (reg.id != 0) ? static_cast<int>(reg.id) : fnv1a(reg.titulo);
-        tabela.inserir(key);
-        key_to_regs[key].push_back(reg);
+        auto it = key_to_bucket.find(key);
+        int bucket_id = (it != key_to_bucket.end()) ? it->second : 0;
+
+        std::string bucket_file = tmp_dir + "/bucket_" + std::to_string(bucket_id) + ".bin";
+        std::ofstream bfile(bucket_file, std::ios::binary | std::ios::app);
+        if (!bfile.is_open()) {
+            LOG_WARNING(std::string("Não foi possível abrir arquivo do bucket: ") + bucket_file + " (linha " + std::to_string(linha_num) + ")\n");
+            continue;
+        }
+        bfile.write(reinterpret_cast<const char*>(&reg), sizeof(registro));
+        bfile.close();
     }
 
-    auto snapshot = tabela.snapshot_buckets();
+    entrada.close();
 
+    // --- PASSO 3: ler arquivos por bucket e escrever blocos no destino ---
     const int REGS_PER_BLOCO = 2; // conforme struct bloco
-    std::vector<bloco> blocks;
-    std::map<int, std::pair<int,int>> metadata;
+    std::map<int, std::pair<int,int>> metadata; // bucket -> (start_block, num_blocks)
+    int global_block_index = 0;
 
-    for (const auto &entry : snapshot) {
-        int bucket_id = entry.first;
-        const std::list<int> &keys = entry.second;
-
-        int start_index = blocks.size();
+    for (const auto &entry : snapshot){
+        long bucket_offset = entry.first;
+        int bucket_id = offset_to_bucketid[bucket_offset];
+        int start_index = global_block_index;
         int blocks_for_bucket = 0;
 
-        std::vector<registro> all_recs;
-        for (int key : keys) {
-            auto it = key_to_regs.find(key);
-            if (it != key_to_regs.end()){
-                for (const registro &r : it->second) all_recs.push_back(r);
-            }
-        }
-
-        size_t pos = 0;
-        while (pos < all_recs.size()){
-            bloco b;
-            int cnt = 0;
-            for (; cnt < REGS_PER_BLOCO && pos < all_recs.size(); ++cnt, ++pos){
-                b.regs[cnt] = all_recs[pos];
-            }
-            for (unsigned k = cnt; k < num_registros; ++k) b.regs[k] = registro();
-            std::memset(b.espaco_livre, 0, tam_espaco_livre);
-            blocks.push_back(b);
-            blocks_for_bucket++;
-        }
-
-        if (blocks_for_bucket == 0){
+        std::string bucket_file = tmp_dir + "/bucket_" + std::to_string(bucket_id) + ".bin";
+        if (!fs::exists(bucket_file)) {
+            // bucket vazio: escrever um bloco vazio
             bloco b;
             for (unsigned k = 0; k < num_registros; ++k) b.regs[k] = registro();
-            std::memset(b.espaco_livre, 0, tam_espaco_livre);
-            blocks.push_back(b);
+            for (unsigned k = 0; k < tam_espaco_livre; ++k) b.espaco_livre[k] = 0;
+            destino.write(reinterpret_cast<const char*>(&b), sizeof(bloco));
             blocks_for_bucket = 1;
+            global_block_index += 1;
+            metadata[bucket_id] = {start_index, blocks_for_bucket};
+            continue;
+        }
+
+        std::ifstream bfile(bucket_file, std::ios::binary);
+        if (!bfile.is_open()) {
+            LOG_WARNING(std::string("Não foi possível abrir arquivo do bucket para leitura: ") + bucket_file + "\n");
+            // escrever 1 bloco vazio para manter consistência
+            bloco b;
+            for (unsigned k = 0; k < num_registros; ++k) b.regs[k] = registro();
+            for (unsigned k = 0; k < tam_espaco_livre; ++k) b.espaco_livre[k] = 0;
+            destino.write(reinterpret_cast<const char*>(&b), sizeof(bloco));
+            blocks_for_bucket = 1;
+            global_block_index += 1;
+            metadata[bucket_id] = {start_index, blocks_for_bucket};
+            continue;
+        }
+
+        // ler registros do arquivo do bucket e empacotar em blocos
+        while (true){
+            bloco b;
+            int cnt = 0;
+            registro tmp;
+            for (; cnt < (int)num_registros && bfile.read(reinterpret_cast<char*>(&tmp), sizeof(registro)); ++cnt){
+                b.regs[cnt] = tmp;
+            }
+            // se leu algum registro, completar o bloco e escrever
+            if (cnt > 0){
+                for (unsigned k = cnt; k < num_registros; ++k) b.regs[k] = registro();
+                for (unsigned k = 0; k < tam_espaco_livre; ++k) b.espaco_livre[k] = 0;
+                destino.write(reinterpret_cast<const char*>(&b), sizeof(bloco));
+                blocks_for_bucket++;
+                global_block_index++;
+            } else break;
+        }
+
+        bfile.close();
+        // remover arquivo temporário
+        try { fs::remove(bucket_file); } catch (...) {}
+
+        if (blocks_for_bucket == 0){
+            // garantir pelo menos 1 bloco por bucket
+            bloco b;
+            for (unsigned k = 0; k < num_registros; ++k) b.regs[k] = registro();
+            for (unsigned k = 0; k < tam_espaco_livre; ++k) b.espaco_livre[k] = 0;
+            destino.write(reinterpret_cast<const char*>(&b), sizeof(bloco));
+            blocks_for_bucket = 1;
+            global_block_index++;
         }
 
         metadata[bucket_id] = {start_index, blocks_for_bucket};
     }
 
-    for (const bloco &b : blocks){
-        destino.write(reinterpret_cast<const char*>(&b), sizeof(bloco));
-    }
     destino.close();
 
+    // escreve metadados
     std::string meta_name = "dados_hash_ext.meta";
     std::ofstream meta(meta_name, std::ios::trunc);
     if (meta.is_open()){
@@ -480,7 +584,7 @@ void bloco::criar_arquivo_blocos_hash_file(const std::string &arq_origem, size_t
         meta.close();
     }
 
-    LOG_INFO(std::string("Arquivo 'dados_hash_ext.in' criado com ") + std::to_string(blocks.size()) + " blocos.\n");
+    LOG_INFO(std::string("Arquivo 'dados_hash_ext.in' criado com ") + std::to_string(global_block_index) + " blocos.\n");
     LOG_INFO(std::string("Metadados escritos em: ") + meta_name);
 }
 
