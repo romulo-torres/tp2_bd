@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstdint>
 #include <cstring>
-#include "registro.h"
+#include "../include/registro.h"
 
 
 

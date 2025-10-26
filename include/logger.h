@@ -71,8 +71,7 @@ private:
     }
 };
 
-// Precisamos definir o mutex estático fora da classe
-std::mutex Logger::logMutex;
+// A definição (instanciação) do mutex estático fica em src/logger.cpp
 
 // --- Macros Auxiliares (Opcional, mas muito útil) ---
 // Isso facilita a chamada da função de log no seu código
