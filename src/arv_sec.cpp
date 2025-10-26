@@ -11,39 +11,42 @@
 
 // Definindo Offset como long
 typedef long Offset; 
-int totalBlocosCriados = 0; 
+// MUDANÇA: Renomeado para _sec para evitar conflito
+int totalBlocosCriados_sec = 0; 
 
-// Variável global para a raiz (usada apenas para diagnóstico agora)
-Offset raizOffset = -1;
+// MUDANÇA: Renomeado para _sec para evitar conflito
+Offset raizOffset_sec = -1;
 
-Offset escreverNoFolha(std::fstream &arq, NoFolha &no, Offset offsetEscrita) {
+// MUDANÇA: Corrigido o typo (removido o _sec extra)
+Offset escreverNoFolha_sec(std::fstream &arq, NoFolha_sec &no, Offset offsetEscrita) {
     arq.seekp(offsetEscrita, std::ios::beg);
-    arq.write(reinterpret_cast<char*>(&no), sizeof(NoFolha));
+    arq.write(reinterpret_cast<char*>(&no), sizeof(NoFolha_sec));
     arq.flush();
     return offsetEscrita;
 }
 
-Offset escreverNoInterno(std::fstream &arq, NoInterno &no, Offset offsetEscrita) {
+Offset escreverNoInterno_sec(std::fstream &arq, NoInterno_sec &no, Offset offsetEscrita) {
     arq.seekp(offsetEscrita, std::ios::beg);
-    arq.write(reinterpret_cast<char*>(&no), sizeof(NoInterno));
+    arq.write(reinterpret_cast<char*>(&no), sizeof(NoInterno_sec));
     arq.flush();
     return offsetEscrita;
 }
 
-Offset escreverBlocoLista(std::fstream &arq, BlocoLista &bloco, Offset offsetEscrita) {
+Offset escreverBlocoLista_sec(std::fstream &arq, BlocoLista &bloco, Offset offsetEscrita) {
     arq.seekp(offsetEscrita, std::ios::beg);
     arq.write(reinterpret_cast<char*>(&bloco), sizeof(BlocoLista));
     arq.flush();
     return offsetEscrita;
 }
 
-void atualizarProxFolha(std::fstream &arq, Offset offsetFolhaAnterior, Offset offsetProx) {
-    arq.seekp(offsetFolhaAnterior + offsetof(NoFolha, prox), std::ios::beg);
+void atualizarProxFolha_sec(std::fstream &arq, Offset offsetFolhaAnterior, Offset offsetProx) {
+    // MUDANÇA: Usando NoFolha_sec
+    arq.seekp(offsetFolhaAnterior + offsetof(NoFolha_sec, prox), std::ios::beg);
     arq.write(reinterpret_cast<char*>(&offsetProx), sizeof(Offset));
     arq.flush();
 }
 
-Offset escreverListasDeOffsets(std::fstream &arvore, const std::vector<Offset> &offsets, Offset &offsetAtual) {
+Offset escreverListasDeOffsets_sec(std::fstream &arvore, const std::vector<Offset> &offsets, Offset &offsetAtual) {
     
     BlocoLista bloco;
     std::memset(&bloco, 0, sizeof(BlocoLista));
@@ -53,34 +56,28 @@ Offset escreverListasDeOffsets(std::fstream &arvore, const std::vector<Offset> &
     Offset offsetBlocoAnterior = -1;
 
     for (size_t i = 0; i < offsets.size(); ++i) {
-        // Adiciona o offset do registro ao bloco de lista
         bloco.offsetsRegistros[bloco.nOffsets] = offsets[i];
         bloco.nOffsets++;
 
-        // Verifica se o bloco de lista está cheio
         if (bloco.nOffsets == MAX_OFFSETS_POR_BLOCO) {
             Offset offsetEscritaAtual = offsetAtual;
-            offsetAtual += sizeof(BlocoLista); // Prepara o offset para o *próximo* bloco
+            offsetAtual += sizeof(BlocoLista); 
 
-            // Se não for o primeiro bloco, precisa atualizar o 'prox' do bloco anterior
             if (offsetBlocoAnterior != -1) {
-                // Aponta o bloco anterior para este novo bloco
                 arvore.seekp(offsetBlocoAnterior + offsetof(BlocoLista, proxBlocoLista), std::ios::beg);
                 arvore.write(reinterpret_cast<char*>(&offsetEscritaAtual), sizeof(Offset));
             }
 
-            bloco.proxBlocoLista = -1; // O 'prox' deste bloco ainda é -1
-            escreverBlocoLista(arvore, bloco, offsetEscritaAtual);
-            totalBlocosCriados++;
+            bloco.proxBlocoLista = -1; 
+            escreverBlocoLista_sec(arvore, bloco, offsetEscritaAtual);
+            totalBlocosCriados_sec++; 
 
-            // Prepara o próximo bloco
             offsetBlocoAnterior = offsetEscritaAtual;
             std::memset(&bloco, 0, sizeof(BlocoLista));
             bloco.proxBlocoLista = -1;
         }
     }
 
-    // Escreve o último bloco (parcialmente preenchido)
     if (bloco.nOffsets > 0) {
         Offset offsetEscritaAtual = offsetAtual;
         offsetAtual += sizeof(BlocoLista);
@@ -90,91 +87,80 @@ Offset escreverListasDeOffsets(std::fstream &arvore, const std::vector<Offset> &
             arvore.write(reinterpret_cast<char*>(&offsetEscritaAtual), sizeof(Offset));
         }
 
-        escreverBlocoLista(arvore, bloco, offsetEscritaAtual);
-        totalBlocosCriados++;
+        escreverBlocoLista_sec(arvore, bloco, offsetEscritaAtual);
+        totalBlocosCriados_sec++; 
     }
 
     return primeiroBlocoOffset;
 }
 
-std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, Offset &offsetAtual) {
+std::vector<Offset> construirFolhas_sec(std::fstream &arvore, std::ifstream &dados, Offset &offsetAtual) {
     
-    // --- PASSO 1: Ler todos os dados e agrupar por chave ---
-    // (Chave (título truncado), Lista de Offsets (para dados.bin))
     std::map<std::string, std::vector<Offset>> mapaChaves;
     
     dados.clear();
     dados.seekg(0, std::ios::beg);
     
     registro reg;
-    char tituloTruncado[300]; // Buffer para truncamento seguro
+    char tituloTruncado[300]; 
 
     while (dados.read(reinterpret_cast<char*>(&reg), sizeof(registro))) {
         Offset offsetDoRegistro = dados.tellg();
         offsetDoRegistro -= sizeof(registro);
 
-        // Truncamento seguro (301 -> 300)
         strncpy(tituloTruncado, reg.titulo, 299);
         tituloTruncado[299] = '\0';
 
-        // Adiciona o offset à lista daquele título
         mapaChaves[tituloTruncado].push_back(offsetDoRegistro);
     }
 
-    // --- PASSO 2: Escrever os Blocos de Lista e os Nós Folha ---
-
     std::vector<Offset> offsetsFolhas;
-    NoFolha folha;
+    NoFolha_sec folha; 
     Offset offsetFolhaAnterior = -1;
     
-    std::memset(&folha, 0, sizeof(NoFolha));
+    std::memset(&folha, 0, sizeof(NoFolha_sec)); 
     folha.ehFolha = true; 
     folha.prox = -1;
 
-    // O std::map já armazena as chaves em ordem alfabética
     for (auto const& [titulo, listaDeOffsets] : mapaChaves) {
         
-        // 1. Para cada título, escreve sua lista de offsets (pode ser 1 ou N blocos)
-        //    'offsetAtual' é passado por referência e incrementado dentro desta função.
-        Offset primeiroBlocoOffset = escreverListasDeOffsets(arvore, listaDeOffsets, offsetAtual);
+        Offset primeiroBlocoOffset = escreverListasDeOffsets_sec(arvore, listaDeOffsets, offsetAtual);
 
-        // 2. Adiciona a chave (título) e o ponteiro para o PRIMEIRO BlocoLista na folha
         strcpy(folha.chaves[folha.nChaves].titulo, titulo.c_str());
         folha.offsetsRegistros[folha.nChaves] = primeiroBlocoOffset;
         folha.nChaves++;
 
-        // 3. Se a folha estiver cheia, escreve no disco
-        if (folha.nChaves == MAX_CHAVES_FOLHA) {
+        
+        if (folha.nChaves == MAX_CHAVES_FOLHA_SEC) {
             Offset offsetEscrita = offsetAtual;
-            offsetAtual += sizeof(NoFolha); // Reserva espaço para a folha
+            offsetAtual += sizeof(NoFolha_sec); 
 
             if (offsetFolhaAnterior != -1) {
-                atualizarProxFolha(arvore, offsetFolhaAnterior, offsetEscrita);
+                atualizarProxFolha_sec(arvore, offsetFolhaAnterior, offsetEscrita);
             }
             
-            escreverNoFolha(arvore, folha, offsetEscrita);
-            totalBlocosCriados++;
+            escreverNoFolha_sec(arvore, folha, offsetEscrita); 
+            totalBlocosCriados_sec++; 
             offsetsFolhas.push_back(offsetEscrita);
             
             offsetFolhaAnterior = offsetEscrita;
             
-            std::memset(&folha, 0, sizeof(NoFolha));
+            std::memset(&folha, 0, sizeof(NoFolha_sec)); 
             folha.ehFolha = true;
             folha.prox = -1;
         }
     }
     
-    // Escreve a última folha (parcialmente preenchida)
     if (folha.nChaves > 0) {
         Offset offsetEscrita = offsetAtual;
-        offsetAtual += sizeof(NoFolha); // Reserva espaço
+        offsetAtual += sizeof(NoFolha_sec); 
         
         if (offsetFolhaAnterior != -1) {
-            atualizarProxFolha(arvore, offsetFolhaAnterior, offsetEscrita);
+            atualizarProxFolha_sec(arvore, offsetFolhaAnterior, offsetEscrita);
         }
         
-        escreverNoFolha(arvore, folha, offsetEscrita);
-        totalBlocosCriados++;
+        escreverNoFolha_sec(arvore, folha, offsetEscrita); 
+        totalBlocosCriados_sec++; 
         offsetsFolhas.push_back(offsetEscrita);
     }
     
@@ -182,31 +168,28 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
 }
 
 
-// Manter a função construirNivelInterno para contexto.
-std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vector<Offset> &nivelAnterior, Offset &offsetAtual) {
+std::vector<Offset> construirNivelInterno_sec(std::fstream &arvore, const std::vector<Offset> &nivelAnterior, Offset &offsetAtual) {
     std::vector<Offset> offsetsNovoNivel;
-    NoInterno noInterno;
+    NoInterno_sec noInterno; 
     
-    std::memset(&noInterno, 0, sizeof(NoInterno));
+    std::memset(&noInterno, 0, sizeof(NoInterno_sec)); 
     noInterno.ehFolha = false;
 
     if (nivelAnterior.empty()) {
         return {}; 
     }
     
-    // O primeiro filho do novo nó interno é sempre o primeiro nó do nível anterior.
     noInterno.filhos[0] = nivelAnterior[0];
 
-    // Percorre o resto dos nós do nível anterior (i=1 a N)
     for (size_t i = 1; i < nivelAnterior.size(); ++i) {
         Offset filhoOffset = nivelAnterior[i];
         
-        // 1. Ler o nó filho para obter a chave a ser promovida
-        // Lendo apenas o cabeçalho para obter a primeira chave
-        char buffer_leitura[sizeof(NoInterno)]; 
+        // MUDANÇA: Renomeado
+        char buffer_leitura[sizeof(NoInterno_sec)]; 
         arvore.seekg(filhoOffset, std::ios::beg);
         
-        if (!arvore.read(buffer_leitura, sizeof(NoInterno))) {
+        // MUDANÇA: Renomeado
+        if (!arvore.read(buffer_leitura, sizeof(NoInterno_sec))) {
             std::cerr << "ERRO FATAL: Falha ao ler nó filho no offset " << filhoOffset << ". Ponteiro inválido no nivel anterior!\n";
             return {}; 
         }
@@ -214,77 +197,71 @@ std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vecto
         bool is_folha = *reinterpret_cast<bool*>(buffer_leitura);
         ChaveTitulo chavePromovida;
         
-        // A chave promovida é a primeira chave do nó filho (regra do B+ Tree Bulk Load)
         if (is_folha) {
-            // Acessa a primeira chave do NoFolha
-            strcpy(chavePromovida.titulo, reinterpret_cast<NoFolha*>(buffer_leitura)->chaves[0].titulo);
+            // MUDANÇA: Renomeado
+            strcpy(chavePromovida.titulo, reinterpret_cast<NoFolha_sec*>(buffer_leitura)->chaves[0].titulo);
         } else {
-            // Acessa a primeira chave do NoInterno
-            strcpy(chavePromovida.titulo, reinterpret_cast<NoInterno*>(buffer_leitura)->chaves[0].titulo);
+            // MUDANÇA: Renomeado
+            strcpy(chavePromovida.titulo, reinterpret_cast<NoInterno_sec*>(buffer_leitura)->chaves[0].titulo);
         }
         
-        // 2. Inserir a chave e o ponteiro para o novo filho (índice i)
         std::uint32_t indiceChave = noInterno.nChaves; 
         
-        // A chave é a separadora
         strcpy(noInterno.chaves[indiceChave].titulo, chavePromovida.titulo); 
         
         noInterno.filhos[indiceChave + 1] = filhoOffset; 
         noInterno.nChaves++;
 
-
-        // 3. Overflow: Inicia um novo nó interno, movendo o último ponteiro para P0
-        if (noInterno.nChaves == MAX_CHAVES_INTERNO) { 
+        // MUDANÇA: Renomeado
+        if (noInterno.nChaves == MAX_CHAVES_INTERNO_SEC) { 
             
             Offset offsetEscrita = offsetAtual;
-            escreverNoInterno(arvore, noInterno, offsetEscrita);
-            totalBlocosCriados++; // Necessário que 'totalBlocosCriados' esteja definida.
+            escreverNoInterno_sec(arvore, noInterno, offsetEscrita);
+            totalBlocosCriados_sec++; // MUDANÇA: Renomeado
+
             offsetsNovoNivel.push_back(offsetEscrita);
 
-            offsetAtual += sizeof(NoInterno);
+            offsetAtual += sizeof(NoInterno_sec); // MUDANÇA: Renomeado
 
-            // Transfere o último filho para ser o primeiro filho do novo nó
-            Offset ultimoFilho = noInterno.filhos[MAX_CHAVES_INTERNO];
-            std::memset(&noInterno, 0, sizeof(NoInterno));
+            Offset ultimoFilho = noInterno.filhos[MAX_CHAVES_INTERNO_SEC]; // MUDANÇA: Renomeado
+            std::memset(&noInterno, 0, sizeof(NoInterno_sec)); // MUDANÇA: Renomeado
             noInterno.ehFolha = false;
             noInterno.filhos[0] = ultimoFilho; 
             noInterno.nChaves = 0; 
         }
     }
 
-    // Escreve o nó interno que sobrou (ou o único nó criado)
     if (noInterno.nChaves > 0 || offsetsNovoNivel.empty()) { 
         Offset offsetEscrita = offsetAtual;
-        escreverNoInterno(arvore, noInterno, offsetEscrita);
-        totalBlocosCriados++; // Necessário que 'totalBlocosCriados' esteja definida.
+        escreverNoInterno_sec(arvore, noInterno, offsetEscrita);
+        totalBlocosCriados_sec++; // MUDANÇA: Renomeado
         offsetsNovoNivel.push_back(offsetEscrita);
-        offsetAtual += sizeof(NoInterno);
+        offsetAtual += sizeof(NoInterno_sec); // MUDANÇA: Renomeado
     }
     
-    // printf("Total de blocos do arquivo de arvore: %d\n", totalBlocosCriados); // Removido para evitar erro de variável global não definida.
     return offsetsNovoNivel;
 }
 
 
-std::vector<Offset> buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveBusca, Offset ofRaiz) { 
+std::vector<Offset> buscarNaArvoreBPlus_sec(std::fstream &arvore, const char* chaveBusca, Offset ofRaiz) { 
     arvore.clear();
     Offset currentOffset = ofRaiz;
     std::uint32_t blocosLidos = 0; 
 
     if (currentOffset <= 0) {
          std::cerr << "[Error] Offset da raiz é inválido: " << currentOffset << "\n";
-         return {}; // Retorna vetor vazio
+         return {}; 
     }
 
     while (currentOffset != -1) {
         
-        char bufferNo[sizeof(NoInterno)]; // 4KB
+        char bufferNo[sizeof(NoInterno_sec)]; // MUDANÇA: Renomeado
         arvore.seekg(currentOffset, std::ios::beg);
         
-        if (!arvore.read(bufferNo, sizeof(NoInterno))) {
+        if (!arvore.read(bufferNo, sizeof(NoInterno_sec))) { // MUDANÇA: Renomeado
             std::cerr << "Erro ao ler nó no offset " << currentOffset << ".\n";
             std::cout << "Total de blocos lidos: " << blocosLidos << ".\n"; 
-            return {}; // Retorna vetor vazio
+            return {}; 
         }
 
         blocosLidos++; 
@@ -292,9 +269,8 @@ std::vector<Offset> buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveB
         bool ehFolha = *reinterpret_cast<bool*>(bufferNo);
 
         if (ehFolha) {
-            NoFolha* folha = reinterpret_cast<NoFolha*>(bufferNo);
+            NoFolha_sec* folha = reinterpret_cast<NoFolha_sec*>(bufferNo); // MUDANÇA: Renomeado
             
-            // Busca binária na folha (igual a antes)
             int inicio = 0;
             int fim = folha->nChaves - 1;
             int indiceEncontrado = -1;
@@ -309,46 +285,40 @@ std::vector<Offset> buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveB
                   else { inicio = meio + 1; }
             }
 
-            // lista de blocos para achar todos os registros iguais
             if (indiceEncontrado != -1) {
-                // Chave encontrada! Agora, percorre a lista de BlocoLista.
                 std::cout << "\nSUCESSO: Chave \"" << chaveBusca << "\" encontrada.\n";
                 
                 std::vector<Offset> resultados;
                 
-                // Pega o ponteiro para o *início* da lista de duplicados.
                 Offset offsetLista = folha->offsetsRegistros[indiceEncontrado];
-                BlocoLista blocoLista; // Buffer para ler os blocos de lista
+                BlocoLista blocoLista; 
 
-                // Loop para percorrer a lista encadeada de BlocoLista
                 while (offsetLista != -1) {
                     arvore.seekg(offsetLista, std::ios::beg);
                     if (!arvore.read(reinterpret_cast<char*>(&blocoLista), sizeof(BlocoLista))) {
                          std::cerr << "Erro fatal: Bloco de lista corrompido no offset " << offsetLista << "\n";
-                         break; // Retorna o que encontrou até agora
+                         break; 
                     }
-                    blocosLidos++; // Conta o BlocoLista como um bloco lido
+                    blocosLidos++; 
 
-                    // Adiciona todos os offsets deste bloco ao vetor de resultados
                     for (std::uint32_t i = 0; i < blocoLista.nOffsets; ++i) {
                         resultados.push_back(blocoLista.offsetsRegistros[i]);
                     }
                     
-                    offsetLista = blocoLista.proxBlocoLista; // Vai para o próximo bloco
+                    offsetLista = blocoLista.proxBlocoLista; 
                 }
 
                 std::cout << "Total de " << resultados.size() << " registro(s) encontrado(s).\n";
                 std::cout << "Quantidade de blocos lidos para encontrar: " << blocosLidos << "\n"; 
                 return resultados; 
             }
-            // --- Fim da mudança ---
 
             std::cout << "Chave não encontrada na folha.\n";
             std::cout << "Quantidade de blocos lidos para encontrar: " << blocosLidos << "\n"; 
-            return {}; // Retorna vetor vazio
+            return {}; 
         } 
-        else { // Nó Interno (lógica idêntica a antes)
-            NoInterno* no = reinterpret_cast<NoInterno*>(bufferNo);
+        else { 
+            NoInterno_sec* no = reinterpret_cast<NoInterno_sec*>(bufferNo); // MUDANÇA: Renomeado
             std::uint32_t i = 0;
             while (i < no->nChaves && strcmp(chaveBusca, no->chaves[i].titulo) >= 0) {
                 i++;
@@ -358,15 +328,15 @@ std::vector<Offset> buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveB
             if (currentOffset <= 0) { 
                 std::cerr << "No interno encontrou ponteiro filho inválido: " << no->filhos[i] << ".\n";
                 std::cout << "Total de blocos lidos: " << blocosLidos << ".\n"; 
-                return {}; // Retorna vetor vazio
+                return {}; 
             }
         }
     }
     std::cout << "Total de blocos lidos: " << blocosLidos << ".\n"; 
-    return {}; // Retorna vetor vazio
+    return {}; 
 }
 
-void lerEImprimirRegistro(const std::vector<Offset>& offsetsRegistros) { 
+void lerEImprimirRegistro_sec(const std::vector<Offset>& offsetsRegistros) { 
     std::ifstream estatistica_arv_sec("../data/estatistica.txt"); 
     int blocosarq = 0;
     std::string linha;
@@ -380,7 +350,6 @@ void lerEImprimirRegistro(const std::vector<Offset>& offsetsRegistros) {
          std::cerr << "Aviso: Nao foi possivel abrir estatistica.txt\n";
     }  
 
-    // Se o vetor de offsets estiver vazio, o registro não foi encontrado
     if (offsetsRegistros.empty()) { 
         if (blocosarq > 0) {
             std::cout << "Total de blocos (da arvore): " << blocosarq << "\n";
@@ -389,21 +358,19 @@ void lerEImprimirRegistro(const std::vector<Offset>& offsetsRegistros) {
         return;
     }
     
-    // CORREÇÃO: Caminho para dados.bin
     std::ifstream arq_dados("../bin/dados.bin", std::ios::binary);
     if (!arq_dados.is_open()) { 
          std::cerr << "Erro ao abrir ../bin/dados.bin\n";
          return;
     }
     
-    // --- MUDANÇA: Loop para imprimir todos os registros ---
     int contador = 1;
     for (Offset offset : offsetsRegistros) {
         registro reg;
         arq_dados.seekg(offset, std::ios::beg);
 
         if (arq_dados.read(reinterpret_cast<char*>(&reg), sizeof(registro))) {
-            if (contador == 1 && blocosarq > 0) { // Imprime o total de blocos só uma vez
+            if (contador == 1 && blocosarq > 0) { 
                 std::cout << "Total de blocos (da arvore): " << blocosarq << "\n";
             }
             std::cout << "\n--- Registro " << contador++ << " (Offset: " << offset << ") ---\n";
@@ -419,15 +386,14 @@ void lerEImprimirRegistro(const std::vector<Offset>& offsetsRegistros) {
             std::cout << "\n--- Erro ao ler Registro (Offset: " << offset << ") ---\n";
         }
     }
-    // --- Fim da mudança ---
     
     arq_dados.close();
 }
 
-int cria_arvore_secundaria() { // Função pra criar e povoar a árvore em memoria secundaria
+int cria_arvore_secundaria() { 
     std::ifstream dados("../bin/dados.bin", std::ios::binary);
     std::fstream arvore("../bin/arvore_sec.bin", std::ios::binary | std::ios::trunc | std::ios::in | std::ios::out);
-    std::ofstream estatistica_arv_sec("../data/estatistica.txt"); // Para escrever a quantidade de blocos e não precisar ficar recalculando
+    std::ofstream estatistica_arv_sec("../data/estatistica.txt"); 
 
 
     if (!dados.is_open() || !arvore.is_open()) {
@@ -438,38 +404,39 @@ int cria_arvore_secundaria() { // Função pra criar e povoar a árvore em memor
     Offset placeholderRaiz = 0; 
     arvore.write(reinterpret_cast<char*>(&placeholderRaiz), sizeof(Offset));
     
-    // Offset inicial para os nós da árvore (APÓS o ponteiro da raiz)
     Offset offsetAtual = sizeof(Offset); 
     arvore.flush();
 
-    std::vector<Offset> nivelAtual = construirFolhas(arvore, dados, offsetAtual);
+    std::vector<Offset> nivelAtual = construirFolhas_sec(arvore, dados, offsetAtual);
     
     while (nivelAtual.size() > 1) {
-        nivelAtual = construirNivelInterno(arvore, nivelAtual, offsetAtual);
+        nivelAtual = construirNivelInterno_sec(arvore, nivelAtual, offsetAtual);
     }
 
-    // Pega a raiz (ou -1 se o vetor estiver vazio)
-    raizOffset = (nivelAtual.empty() ? -1 : nivelAtual[0]); 
+   
+    raizOffset_sec = (nivelAtual.empty() ? -1 : nivelAtual[0]); 
     
-    // Agora escreve o offset da raiz real no início do arquivo
     arvore.seekp(0, std::ios::beg);
-    arvore.write(reinterpret_cast<char*>(&raizOffset), sizeof(Offset));
+ 
+    arvore.write(reinterpret_cast<char*>(&raizOffset_sec), sizeof(Offset));
     arvore.flush();
 
-    std::cout << "Árvore construída. Offset da raiz eh: " << raizOffset << "\n";
+    
+    std::cout << "Árvore Secundária construída. Offset da raiz eh: " << raizOffset_sec << "\n";
 
     if (!estatistica_arv_sec.is_open()) { 
         std::cerr << "Erro ao abrir estatistica.txt\n";
-        // Não retorna 1, a árvore foi criada
     } else {
-        estatistica_arv_sec << "Total de blocos do arquivo de dados: " << totalBlocosCriados << "\n";
-        estatistica_arv_sec.close(); // CORREÇÃO: Fechar arquivo
+ 
+        estatistica_arv_sec << "Total de blocos do arquivo de dados: " << totalBlocosCriados_sec << "\n";
+        estatistica_arv_sec.close(); 
     }
     
-    totalBlocosCriados = 0; 
+    totalBlocosCriados_sec = 0;
 
     dados.close();
     arvore.close();
 
     return 0;
 }
+

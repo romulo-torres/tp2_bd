@@ -128,11 +128,9 @@ void bloco::separa_csv(const std::string &linha, std::vector<std::string> &campo
 /* função para ler o arquivo csv e então criar o arquivo de blocos com nome dados.in
 bom falar que não é o arquvo de dados que pede para hash, não organizei de maneira nenhuma por hash, só é um arquivo com blocos de registro*/
 void bloco::criar_arquivo_blocos() {
-    std::string arq_origem = "../data/artigo.csv"
-    std::string arq_origem;
-    std::cin >> arq_origem;
-
+    std::string arq_origem = "../data/artigo.csv";
     std::ifstream entrada(arq_origem);
+    
     if(!entrada.is_open()){
         LOG_ERROR("Não foi possível abrir o arquivo de origem\n");
         return;

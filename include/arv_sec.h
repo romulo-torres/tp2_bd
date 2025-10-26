@@ -10,7 +10,7 @@
 
 const size_t TAM_BLOCO = 4096;
 typedef long Offset; // Meu tipo pra retornar o endereço/onde ta meu registro no arquivo de dados
-extern Offset raizOffset;
+extern Offset raizOffset_sec;
 
 
 #pragma pack(push, 1) // pra ter exatamente 300 bytes de chave
@@ -19,57 +19,64 @@ struct ChaveTitulo {
 };
 #pragma pack(pop)
 
-const int MAX_CHAVES_FOLHA = (TAM_BLOCO - sizeof(bool) - sizeof(std::uint32_t) - sizeof(Offset)) 
+const int MAX_CHAVES_FOLHA_SEC = (TAM_BLOCO - sizeof(bool) - sizeof(std::uint32_t) - sizeof(Offset)) 
                              / (sizeof(ChaveTitulo) + sizeof(Offset)); // Resultado: 13
 
-const int MAX_CHAVES_INTERNO = (TAM_BLOCO - sizeof(bool) - sizeof(std::uint32_t) - sizeof(Offset)) 
+const int MAX_CHAVES_INTERNO_SEC = (TAM_BLOCO - sizeof(bool) - sizeof(std::uint32_t) - sizeof(Offset)) 
                                / (sizeof(ChaveTitulo) + sizeof(Offset)); // Resultado: 13
 
-#pragma pack(push, 1) // desativa o padding
-
-struct NoFolha {
+#pragma pack(push, 1) 
+struct NoFolha_sec {
     bool ehFolha = true;
     std::uint32_t nChaves = 0;
-    ChaveTitulo chaves[MAX_CHAVES_FOLHA];
-    Offset offsetsRegistros[MAX_CHAVES_FOLHA]; // ponteiros para dados
-    Offset prox = -1; // próxima folha
+    ChaveTitulo chaves[MAX_CHAVES_FOLHA_SEC];
+    Offset offsetsRegistros[MAX_CHAVES_FOLHA_SEC]; 
+    Offset prox = -1; 
 
-    static const size_t tamanho_usado = offsetof(NoFolha,prox) + sizeof(Offset);
-    char espaco_livre[TAM_BLOCO - tamanho_usado];
+    
+    char espaco_livre[79];
 };
+#pragma pack(pop) 
 
-#pragma pack(pop) // restaura o alinhamento padrão
-
-#pragma pack(push, 1) // desativa o padding
-
-
-struct NoInterno {
+#pragma pack(push, 1) 
+struct NoInterno_sec {
     bool ehFolha = false;
     std::uint32_t nChaves = 0;
-    ChaveTitulo chaves[MAX_CHAVES_INTERNO];
-    Offset filhos[MAX_CHAVES_INTERNO + 1];
+    ChaveTitulo chaves[MAX_CHAVES_INTERNO_SEC]; 
+    Offset filhos[MAX_CHAVES_INTERNO_SEC + 1];
 
-    static const size_t tamanho_usado = 
-        offsetof(NoInterno, filhos) + (sizeof(Offset) * (MAX_CHAVES_INTERNO + 1));
-    char espaco_livre[TAM_BLOCO - tamanho_usado];
+    char espaco_livre[79];
 };
+#pragma pack(pop) 
 
-#pragma pack(pop) // restaura o alinhamento padrão
+const int MAX_OFFSETS_POR_BLOCO = (TAM_BLOCO - sizeof(std::uint32_t) - sizeof(Offset)) / sizeof(Offset); // 510
 
-Offset escreverNoFolha(std::fstream &arq, NoFolha &no, Offset offsetEscrita);
+#pragma pack(push, 1)
+struct BlocoLista {
+    std::uint32_t nOffsets = 0; 
+    Offset proxBlocoLista = -1; 
+    Offset offsetsRegistros[MAX_OFFSETS_POR_BLOCO]; 
 
-Offset escreverNoInterno(std::fstream &arq, NoInterno &no, Offset offsetEscrita);
+    char espaco_livre[4];
+};
+#pragma pack(pop)
 
-void atualizarProxFolha(std::fstream &arq, Offset offsetFolhaAnterior, Offset offsetProx);
+Offset escreverNoFolha_sec(std::fstream &arq, NoFolha_sec &no, Offset offsetEscrita);
 
-std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, Offset &offsetAtual);
+Offset escreverNoInterno_sec(std::fstream &arq, NoInterno_sec &no, Offset offsetEscrita);
 
-std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vector<Offset> &nivelAnterior, Offset &offsetAtual);
+Offset escreverBlocoLista_sec(std::fstream &arq, BlocoLista &bloco, Offset offsetEscrita);
 
-std::vector<Offset> buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveBusca, Offset ofRaiz);
+void atualizarProxFolha_sec(std::fstream &arq, Offset offsetFolhaAnterior, Offset offsetProx);
 
-void lerEImprimirRegistro(Offset offsetRegistro);
+std::vector<Offset> construirFolhas_sec(std::fstream &arvore, std::ifstream &dados, Offset &offsetAtual);
 
-int cria_arvore_primaria();
+std::vector<Offset> construirNivelInterno_sec(std::fstream &arvore, const std::vector<Offset> &nivelAnterior, Offset &offsetAtual);
+
+std::vector<Offset> buscarNaArvoreBPlus_sec(std::fstream &arvore, const char* chaveBusca, Offset ofRaiz);
+
+void lerEImprimirRegistro_sec(const std::vector<Offset>& offsetsRegistros);
+
+int cria_arvore_secundaria();
 
 #endif
