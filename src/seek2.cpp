@@ -7,10 +7,10 @@
 
 #include "../include/arv_sec.h" // Inclui seu header
 
-std::vector<Offset> buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveBusca, Offset ofRaiz);
-void lerEImprimirRegistro(const std::vector<Offset>& offsetsRegistros);
-
-extern Offset raizOffset; // Usa a variável global
+// Use the functions provided for the secondary index (suffixed with _sec)
+// and the corresponding root offset variable.
+// Não precisamos das declarações ad-hoc abaixo porque estão no header.
+extern Offset raizOffset_sec; // Usa a variável global da árvore secundária
 
 int main(int argc, char** argv){
     auto inicio = std::chrono::high_resolution_clock::now(); 
@@ -26,7 +26,7 @@ int main(int argc, char** argv){
     }
 
     arq_arvore.seekg(0, std::ios::beg); 
-    arq_arvore.read(reinterpret_cast<char*>(&raizOffset), sizeof(Offset)); 
+    arq_arvore.read(reinterpret_cast<char*>(&raizOffset_sec), sizeof(Offset)); 
 
     if(argc != 2){ 
         std::cout << "Uso: " << argv[0] << " \"Titulo a ser buscado\"\n";
@@ -37,9 +37,9 @@ int main(int argc, char** argv){
     chaveBusca = argv[1]; 
     std::cout << "Buscando pelo título: \"" << chaveBusca << "\"...\n";
 
-    std::vector<Offset> offsetsChave = buscarNaArvoreBPlus(arq_arvore, chaveBusca, raizOffset); 
+    std::vector<Offset> offsetsChave = buscarNaArvoreBPlus_sec(arq_arvore, chaveBusca, raizOffset_sec); 
 
-    lerEImprimirRegistro(offsetsChave); 
+    lerEImprimirRegistro_sec(offsetsChave); 
     arq_arvore.close(); 
 
     auto fim = std::chrono::high_resolution_clock::now(); 
