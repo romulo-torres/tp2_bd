@@ -12,6 +12,7 @@ const size_t TAM_BLOCO = 4096;
 typedef long Offset; // Meu tipo pra retornar o endereço/onde ta meu registro no arquivo de dados
 extern Offset raizOffset;
 
+
 #pragma pack(push, 1) // pra ter exatamente 300 bytes de chave
 struct ChaveTitulo {
     char titulo[300];
@@ -55,7 +56,6 @@ struct NoInterno {
 
 #pragma pack(pop) // restaura o alinhamento padrão
 
-
 Offset escreverNoFolha(std::fstream &arq, NoFolha &no, Offset offsetEscrita);
 
 Offset escreverNoInterno(std::fstream &arq, NoInterno &no, Offset offsetEscrita);
@@ -66,7 +66,7 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
 
 std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vector<Offset> &nivelAnterior, Offset &offsetAtual);
 
-Offset buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveBusca, Offset ofRaiz);
+std::vector<Offset> buscarNaArvoreBPlus(std::fstream &arvore, const char* chaveBusca, Offset ofRaiz);
 
 void lerEImprimirRegistro(Offset offsetRegistro);
 

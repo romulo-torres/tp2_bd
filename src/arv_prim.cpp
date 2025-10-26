@@ -319,7 +319,7 @@ void lerEImprimirRegistro(Offset offsetRegistro) { // Função que recebe o Offs
     std::getline(estatistica_arv_prim, linha);
     std::sscanf(linha.c_str(), "Total de blocos do arquivo de dados: %d\n", &blocosarq);
 
-    std::ifstream arq_dados("../data/dados.bin", std::ios::binary);
+    std::ifstream arq_dados("../bin/dados.bin", std::ios::binary);
     registro reg;
     arq_dados.seekg(offsetRegistro, std::ios::beg);
 
@@ -345,8 +345,8 @@ void lerEImprimirRegistro(Offset offsetRegistro) { // Função que recebe o Offs
 }
 
 int cria_arvore_primaria() { // Função pra criar e povoar a árvore em memoria secundaria
-    std::ifstream dados("../data/dados.bin", std::ios::binary);
-    std::fstream arvore("../data/arvore.bin", std::ios::binary | std::ios::trunc | std::ios::in | std::ios::out);
+    std::ifstream dados("../bin/dados.bin", std::ios::binary);
+    std::fstream arvore("../bin/arvore_prim.bin", std::ios::binary | std::ios::trunc | std::ios::in | std::ios::out);
     std::ofstream estatistica_arv_prim("../data/estatistica.txt"); // Para escrever a quantidade de blocos e não precisar ficar recalculando
 
 

@@ -128,8 +128,7 @@ void bloco::separa_csv(const std::string &linha, std::vector<std::string> &campo
 /* função para ler o arquivo csv e então criar o arquivo de blocos com nome dados.in
 bom falar que não é o arquvo de dados que pede para hash, não organizei de maneira nenhuma por hash, só é um arquivo com blocos de registro*/
 void bloco::criar_arquivo_blocos() {
-    // versão final tem que ler o arquivo la na pasta /data quando o repositório tiver o formato certo da especificação
-    LOG_INPUT("Insira o nome do arquivo de entrada (deixe ele no mesmo diretório [essa parte de estar no mesmo diretório é só pra testes inciais ta?]): ");
+    std::string arq_origem = "../data/artigo.csv"
     std::string arq_origem;
     std::cin >> arq_origem;
 
@@ -140,7 +139,7 @@ void bloco::criar_arquivo_blocos() {
     }
     
     // o arquivo de dados ficara na /data na versão final
-    std::string arq_destino = "dados.in";
+    std::string arq_destino = "../bin/dados.in";
     std::ofstream destino(arq_destino, std::ios::binary);
     if (!destino.is_open()) {
         LOG_ERROR(std::string("Não foi possível criar o arquivo de destino\n") + arq_destino);
