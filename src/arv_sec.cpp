@@ -65,8 +65,8 @@ Offset escreverListasDeOffsets(std::fstream &arvore, const std::vector<Offset> &
             // Se não for o primeiro bloco, precisa atualizar o 'prox' do bloco anterior
             if (offsetBlocoAnterior != -1) {
                 // Aponta o bloco anterior para este novo bloco
-                arq.seekp(offsetBlocoAnterior + offsetof(BlocoLista, proxBlocoLista), std::ios::beg);
-                arq.write(reinterpret_cast<char*>(&offsetEscritaAtual), sizeof(Offset));
+                arvore.seekp(offsetBlocoAnterior + offsetof(BlocoLista, proxBlocoLista), std::ios::beg);
+                arvore.write(reinterpret_cast<char*>(&offsetEscritaAtual), sizeof(Offset));
             }
 
             bloco.proxBlocoLista = -1; // O 'prox' deste bloco ainda é -1
@@ -86,8 +86,8 @@ Offset escreverListasDeOffsets(std::fstream &arvore, const std::vector<Offset> &
         offsetAtual += sizeof(BlocoLista);
 
         if (offsetBlocoAnterior != -1) {
-            arq.seekp(offsetBlocoAnterior + offsetof(BlocoLista, proxBlocoLista), std::ios::beg);
-            arq.write(reinterpret_cast<char*>(&offsetEscritaAtual), sizeof(Offset));
+            arvore.seekp(offsetBlocoAnterior + offsetof(BlocoLista, proxBlocoLista), std::ios::beg);
+            arvore.write(reinterpret_cast<char*>(&offsetEscritaAtual), sizeof(Offset));
         }
 
         escreverBlocoLista(arvore, bloco, offsetEscritaAtual);

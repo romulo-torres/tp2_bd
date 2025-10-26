@@ -10,7 +10,7 @@ int main(int argc, char** argv){
     auto inicio = std::chrono::high_resolution_clock::now(); // Pra cronometrar o tempo
 
     unsigned chaveBusca; // Aqui é pra guardar a chave que vai ler do terminal
-    std::fstream arq_arvore("../data/arvore.bin", std::ios::binary | std::ios::in); // Abro a árvore como binario
+    std::fstream arq_arvore("../bin/arvore.bin", std::ios::binary | std::ios::in); // Abro a árvore como binario
     arq_arvore.seekg(0, std::ios::beg); // Coloco o cursor no inicio do arquivo
     arq_arvore.read(reinterpret_cast<char*>(&raizOffset), sizeof(Offset)); // Leio o primeiro
 

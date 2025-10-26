@@ -1,5 +1,6 @@
 #include "../include/bloco.h"
 #include "../include/arv_prim.h"
+#include "../include/arv_sec.h"
 #include "../include/hashE.h"
 #include "../include/logger.h"
 #include "../include/limpa_csv.h"
