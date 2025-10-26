@@ -1,3 +1,7 @@
+#include "../include/logger.h"
+
+std::mutex Logger::logMutex;
+
 // Implementação mínima para Logger declarado em include/logger.h
 #include "../include/logger.h"
 

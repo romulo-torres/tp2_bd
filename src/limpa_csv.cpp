@@ -7,7 +7,7 @@
 
 // Função auxiliar para contar a ocorrência de uma substring (ex: '";"') em uma string,
 // simulando a funcionalidade de contagem de substrings do Python.
-int count_substring(const std::string& str, const std::string& sub) {
+static int count_substring(const std::string& str, const std::string& sub) {
     if (sub.length() == 0) {
         return 0;
     }
@@ -21,7 +21,7 @@ int count_substring(const std::string& str, const std::string& sub) {
 }
 
 // Função auxiliar para substituir todas as ocorrências de uma substring (ex: ';;')
-void replace_all(std::string& str, const std::string& from, const std::string& to) {
+static void replace_all(std::string& str, const std::string& from, const std::string& to) {
     if(from.empty())
         return;
     size_t start_pos = 0;
@@ -32,10 +32,10 @@ void replace_all(std::string& str, const std::string& from, const std::string& t
 }
 
 
-int main() {
+int ajeita_csv() {
     // Definindo os nomes dos arquivos
-    const std::string input_filename = "artigo.csv";
-    const std::string output_filename = "artigo_novo.csv";
+    const std::string input_filename = "../data/artigo.csv";
+    const std::string output_filename = "../data/artigo_novo.csv";
 
     // 1. Abertura dos arquivos
     std::ifstream arquivo(input_filename);
@@ -92,11 +92,9 @@ int main() {
                 // Se não conseguir ler a prox_linha (fim do arquivo), a linha é escrita como está.
             
             } else { 
-                // Se tiver 6 ou mais ';', mas menos de 6 '";"', é porque tem elementos nulos (ex: ;;;;) ou erro de aspas.
-                // O Python substitui ';;' por ';NULL;'. 
                 replace_all(linha, ";;", ";NULL;");
 
-                // Note: Esta lógica de substituição de nulos é executada apenas se 
+                // Esta lógica de substituição de nulos é executada apenas se 
                 // a primeira verificação (quant_separacoes < 6) for verdadeira.
             }
         }

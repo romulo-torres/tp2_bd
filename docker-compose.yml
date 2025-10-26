@@ -5,7 +5,7 @@ services:
     build: .
     volumes:
       - ./data:/data
-    command: ["/app/bin/upload", "/data/input.csv"]
+    command: ["/app/bin/upload", "/data/artigo_novo.csv"]
 
   findrec:
     image: tp2
@@ -19,7 +19,7 @@ services:
     build: .
     volumes:
       - ./data:/data
-    command: ["/app/bin/seek1", "123"]
+    command: ["/app/bin/seek1", "5"]
 
   seek2:
     image: tp2

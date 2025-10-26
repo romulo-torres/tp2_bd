@@ -1,5 +1,5 @@
-#include "registro.h"
-#include "bloco.h"
+#include "../include/registro.h"
+#include "../include/bloco.h"
 #include <iostream>
 #include <cstring>
 

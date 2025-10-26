@@ -57,3 +57,6 @@ Todos os programas medem:
 
 ## 📂 Estrutura de Diretórios
 
+## ඞ Como rodar ඞ
+- Primeiro executar o limpa_csv.cpp pois ele irá gerar o artigo_novo.csv
+- Daí, você executa o upload.cpp. Lembrando que a parte de hash está comentada.

@@ -1,4 +1,4 @@
-#include "hashE.h"
+#include "../include/hashE.h"
 
 // --- Funções de I/O de DISCO ---
 

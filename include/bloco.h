@@ -1,7 +1,7 @@
     #ifndef BLOCO_H
     #define BLOCO_H
 
-    #include "registro.h"
+    #include "../include/registro.h"
     #include <fstream>
     #include <iostream>
     #include <sstream>

@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 #include <chrono>
-#include "hashE.h"
+#include "../include/hashE.h"
 
 // --- Funções para LER de data.bin ---
 std::string read_string(std::fstream& file) {
