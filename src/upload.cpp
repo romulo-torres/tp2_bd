@@ -1,40 +1,56 @@
 #include "../include/bloco.h"
-#include "../include/arv_prim.h"
-#include "../include/arv_sec.h"
+#include "../include/arv_prim.h" // Funções cria_arvore_primaria, etc. (nomes originais)
+#include "../include/arv_sec.h"  // Funções cria_arvore_secundaria_sec, etc. (nomes com _sec)
 #include "../include/hashE.h"
 #include "../include/logger.h"
-#include "../include/limpa_csv.h"
+#include "../include/limpa_csv.h" // Função ajeita_csv()
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <chrono> 
-#include <iostream>
+#include <chrono>
+#include <iostream> // Já incluído acima
 
-// faz esse sem receber o caminho, só fixar e deixar o csv no /data
-
-void write_string(std::fstream& file, const std::string& s) {
-    size_t len = s.length();
-    file.write(reinterpret_cast<const char*>(&len), sizeof(len));
-    file.write(s.c_str(), len);
-}
+// REMOVIDO: Função write_string não é usada aqui
+// void write_string(std::fstream& file, const std::string& s) { ... }
 
 int main(){
+    std::string csv_caminho_origem = "../data/artigos.csv";
+    std::string csv_caminho_limpo = "../data/artigo_novo.csv";
 
-    std::string csv_caminho = "../data/ ";
-    std::string data_caminho = "../bin/data.bin";
-    std::string hash_caminho = "../bin/hash_index.bin";
-    bloco b;
-        
-    LOG_INFO(std::string("Iniciando carga de dados de ") + csv_caminho);
-    
-    size_t bucket_capacity = 2;
-    ajeita_csv(); // Função pra ajeitar o csv e gerar o artigo_novo.csv
-    b.criar_arquivo_blocos(); // Crio o arquivo de blocos pra árvore primaria
-    cria_arvore_primaria(); // Crio a árvore primaria em mémoria secundaria
-    cria_arvore_secundaria();
+    LOG_INFO(std::string("Iniciando carga de dados a partir de ") + csv_caminho_origem + " (limpo em " + csv_caminho_limpo + ")");
 
-    b.criar_arquivo_blocos_hash_file(csv_caminho, bucket_capacity);
+    size_t bucket_capacity = 2; // Capacidade para o hash extensível
+
+    // PASSO 1: Limpa o CSV
+    LOG_INFO("Executando ajeita_csv()...");
+    ajeita_csv(); // Assume que lê csv_caminho_origem e cria csv_caminho_limpo
+
+    // PASSO 2: Cria o arquivo de blocos binário (dados.in)
+    // As funções dentro de bloco.cpp agora usam as constantes do bloco.h
+    LOG_INFO("Executando bloco::criar_arquivo_blocos()...");
+    bloco::criar_arquivo_blocos(); // Lê csv_caminho_limpo (hardcoded) e cria ../bin/dados.in
+
+    // PASSO 3: Cria a Árvore Primária
+    LOG_INFO("Executando cria_arvore_primaria()...");
+    // Assume que arv_prim.cpp usa os nomes de função originais
+    if (cria_arvore_primaria() != 0) {
+        LOG_ERROR("Falha ao criar a árvore primária.");
+        return 1; // Aborta se a criação da árvore falhar
+    }
+
+    // PASSO 4: Cria a Árvore Secundária
+    LOG_INFO("Executando cria_arvore_secundaria()...");
+    // Assume que arv_sec.cpp usa os nomes com sufixo _sec
+    if (cria_arvore_secundaria() != 0) {
+        LOG_ERROR("Falha ao criar a árvore secundária.");
+        return 1; // Aborta se a criação da árvore falhar
+    }
+
+    // PASSO 5: Cria o arquivo de dados organizado por Hash Extensível
+    LOG_INFO("Executando bloco::criar_arquivo_blocos_hash_file()...");
+    bloco::criar_arquivo_blocos_hash_file(csv_caminho_limpo, bucket_capacity); // Usa o CSV limpo
 
     LOG_INFO("Processo de empacotamento finalizado.");
     return 0;
 }
+
