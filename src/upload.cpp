@@ -8,10 +8,6 @@
 #include <fstream>
 #include <string>
 #include <chrono>
-#include <iostream> // Já incluído acima
-
-// REMOVIDO: Função write_string não é usada aqui
-// void write_string(std::fstream& file, const std::string& s) { ... }
 
 int main(){
     std::string csv_caminho_origem = "../data/artigos.csv";

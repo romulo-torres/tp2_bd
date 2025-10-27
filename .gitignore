@@ -1,2 +1,9 @@
-data 
-bin
+data/
+bin/
+
+# Build artifacts
+*.o
+
+# Runtime data and generated files
+dados_hash_ext.in
+dados_hash_ext.meta
