@@ -7,38 +7,38 @@
 #include <cstddef>
 
 
-// Definindo Offset como long
-typedef long Offset; 
-unsigned primeiraChaveLida = 0; 
-int totalBlocosCriados = 0; 
+Offset raizOffset_prim = -1; 
+int totalBlocosCriados_prim = 0;
+unsigned primeiraChaveLida_prim = 0;
+
 
 #define TAM_BLOCO 4096
 
 // Variável global para a raiz (usada apenas para diagnóstico agora)
 Offset raizOffset = -1;
 
-Offset escreverNoFolha(std::fstream &arq, NoFolha &no, Offset offsetEscrita) {
+Offset escreverNoFolha_prim(std::fstream &arq, NoFolha &no, Offset offsetEscrita) {
     arq.seekp(offsetEscrita, std::ios::beg);
     arq.write(reinterpret_cast<char*>(&no), sizeof(NoFolha));
     arq.flush();
     return offsetEscrita;
 }
 
-Offset escreverNoInterno(std::fstream &arq, NoInterno &no, Offset offsetEscrita) {
+Offset escreverNoInterno_prim(std::fstream &arq, NoInterno &no, Offset offsetEscrita) {
     arq.seekp(offsetEscrita, std::ios::beg);
     arq.write(reinterpret_cast<char*>(&no), sizeof(NoInterno));
     arq.flush();
     return offsetEscrita;
 }
 
-void atualizarProxFolha(std::fstream &arq, Offset offsetFolhaAnterior, Offset offsetProx) {
+void atualizarProxFolha_prim(std::fstream &arq, Offset offsetFolhaAnterior, Offset offsetProx) {
     arq.seekp(offsetFolhaAnterior + offsetof(NoFolha, prox), std::ios::beg);
     arq.write(reinterpret_cast<char*>(&offsetProx), sizeof(Offset));
     arq.flush();
 }
 
 
-std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, Offset &offsetAtual) {
+std::vector<Offset> construirFolhas_prim(std::fstream &arvore, std::ifstream &dados, Offset &offsetAtual) {
     std::vector<Offset> offsetsFolhas;
     NoFolha folha;
     // Buffer para ler 2 registros (TAM_BLOCO)
@@ -53,11 +53,14 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
     
     bool primeiraLeitura = true; 
     
+    // CORREÇÃO: Calcular offset manualmente para evitar problemas de conversão
+    Offset offsetRegistroAtual = 0;
+    
     // controlamos a saída com gcount() para garantir o processamento do bloco parcial no EOF.
     while (true) {
         
         // 1. Captura o offset inicial ANTES de tentar a leitura.
-        Offset offsetInicioBloco = dados.tellg(); 
+        Offset offsetInicioBloco = offsetRegistroAtual;
         
         // Tenta ler TAM_BLOCO bytes. Se houver menos (EOF), a leitura falha, mas os bytes lidos são armazenados.
         dados.read(buffer, TAM_BLOCO);
@@ -79,14 +82,12 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
             registro* reg = reinterpret_cast<registro*>(buffer + (i * TAM_REGISTRO));
             
             if (primeiraLeitura) {
-                // Necessário que 'primeiraChaveLida' esteja definida globalmente ou passada por referência.
-                // primeiraChaveLida = reg->id; 
                 primeiraLeitura = false;
             }
 
             folha.chaves[folha.nChaves] = reg->id;
             
-            // O offset do registro é a soma do offset inicial da leitura + o deslocamento dentro do bloco
+            // CORREÇÃO: Usa offset calculado manualmente
             folha.offsetsRegistros[folha.nChaves] = offsetInicioBloco + (i * TAM_REGISTRO); 
             
             folha.nChaves++;
@@ -96,11 +97,11 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
                 Offset offsetEscrita = offsetAtual;
                 
                 if (offsetFolhaAnterior != -1) {
-                    atualizarProxFolha(arvore, offsetFolhaAnterior, offsetEscrita);
+                    atualizarProxFolha_prim(arvore, offsetFolhaAnterior, offsetEscrita);
                 }
                 
-                escreverNoFolha(arvore, folha, offsetEscrita);
-                totalBlocosCriados++; // Necessário que 'totalBlocosCriados' esteja definida.
+                escreverNoFolha_prim(arvore, folha, offsetEscrita);
+                totalBlocosCriados_prim++; // Necessário que 'totalBlocosCriados' esteja definida.
                 
                 offsetsFolhas.push_back(offsetEscrita);
                 
@@ -111,6 +112,9 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
                 folha.ehFolha = true;
             }
         }
+        
+        // Atualiza o offset para o próximo bloco
+        offsetRegistroAtual += bytes_lidos;
         
         // 4. Se a leitura falhou (possivelmente por EOF após leitura parcial), 
         // limpamos o estado e o loop deve encerrar na próxima iteração (gcount() == 0).
@@ -129,11 +133,11 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
         Offset offsetEscrita = offsetAtual;
         
         if (offsetFolhaAnterior != -1) {
-            atualizarProxFolha(arvore, offsetFolhaAnterior, offsetEscrita);
+            atualizarProxFolha_prim(arvore, offsetFolhaAnterior, offsetEscrita);
         }
         
-        escreverNoFolha(arvore, folha, offsetEscrita);
-        totalBlocosCriados++; // Necessário que 'totalBlocosCriados' esteja definida.
+        escreverNoFolha_prim(arvore, folha, offsetEscrita);
+        totalBlocosCriados_prim++; // Necessário que 'totalBlocosCriados' esteja definida.
         offsetsFolhas.push_back(offsetEscrita);
         
         offsetAtual += sizeof(NoFolha);
@@ -143,7 +147,7 @@ std::vector<Offset> construirFolhas(std::fstream &arvore, std::ifstream &dados, 
 }
 
 // Manter a função construirNivelInterno para contexto.
-std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vector<Offset> &nivelAnterior, Offset &offsetAtual) {
+std::vector<Offset> construirNivelInterno_prim(std::fstream &arvore, const std::vector<Offset> &nivelAnterior, Offset &offsetAtual) {
     std::vector<Offset> offsetsNovoNivel;
     NoInterno noInterno;
     
@@ -198,8 +202,8 @@ std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vecto
         if (noInterno.nChaves == MAX_CHAVES_INTERNO) { 
             
             Offset offsetEscrita = offsetAtual;
-            escreverNoInterno(arvore, noInterno, offsetEscrita);
-            totalBlocosCriados++; // Necessário que 'totalBlocosCriados' esteja definida.
+            escreverNoInterno_prim(arvore, noInterno, offsetEscrita);
+            totalBlocosCriados_prim++; // Necessário que 'totalBlocosCriados' esteja definida.
             offsetsNovoNivel.push_back(offsetEscrita);
 
             offsetAtual += sizeof(NoInterno);
@@ -216,8 +220,8 @@ std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vecto
     // Escreve o nó interno que sobrou (ou o único nó criado)
     if (noInterno.nChaves > 0 || offsetsNovoNivel.empty()) { 
         Offset offsetEscrita = offsetAtual;
-        escreverNoInterno(arvore, noInterno, offsetEscrita);
-        totalBlocosCriados++; // Necessário que 'totalBlocosCriados' esteja definida.
+        escreverNoInterno_prim(arvore, noInterno, offsetEscrita);
+        totalBlocosCriados_prim++; // Necessário que 'totalBlocosCriados' esteja definida.
         offsetsNovoNivel.push_back(offsetEscrita);
         offsetAtual += sizeof(NoInterno);
     }
@@ -227,7 +231,7 @@ std::vector<Offset> construirNivelInterno(std::fstream &arvore, const std::vecto
 }
 
 
-Offset buscarNaArvoreBPlus(std::fstream &arvore, std::uint32_t chaveBusca, Offset ofRaiz) { // Implementamos com busca binaria nas folhas pra melhorar o desempenho
+Offset buscarNaArvoreBPlus_prim(std::fstream &arvore, std::uint32_t chaveBusca, Offset ofRaiz) { // Implementamos com busca binaria nas folhas pra melhorar o desempenho
     arvore.clear();
     Offset currentOffset = ofRaiz;
     std::uint32_t blocosLidos = 0; // Inicializa o contador de blocos lidos
@@ -298,7 +302,7 @@ Offset buscarNaArvoreBPlus(std::fstream &arvore, std::uint32_t chaveBusca, Offse
 }
 
 
-void lerEImprimirRegistro(Offset offsetRegistro) { // Função que recebe o Offset do registro e imprime os campos deles
+void lerEImprimirRegistro_prim(Offset offsetRegistro) { // Função que recebe o Offset do registro e imprime os campos deles
     std::ifstream estatistica_arv_prim("../data/estatistica.txt"); // Para escrever a quantidade de blocos e não precisar ficar recalculando
     int blocosarq;
     std::string linha;
@@ -319,7 +323,7 @@ void lerEImprimirRegistro(Offset offsetRegistro) { // Função que recebe o Offs
     std::getline(estatistica_arv_prim, linha);
     std::sscanf(linha.c_str(), "Total de blocos do arquivo de dados: %d\n", &blocosarq);
 
-    std::ifstream arq_dados("../bin/dados.bin", std::ios::binary);
+    std::ifstream arq_dados("../bin/dados.in", std::ios::binary);
     registro reg;
     arq_dados.seekg(offsetRegistro, std::ios::beg);
 
@@ -345,8 +349,8 @@ void lerEImprimirRegistro(Offset offsetRegistro) { // Função que recebe o Offs
 }
 
 int cria_arvore_primaria() { // Função pra criar e povoar a árvore em memoria secundaria
-    std::ifstream dados("../bin/dados.bin", std::ios::binary);
-    std::fstream arvore("../bin/arvore_prim.bin", std::ios::binary | std::ios::trunc | std::ios::in | std::ios::out);
+    std::ifstream dados("../bin/dados.in", std::ios::binary);
+    std::fstream arvore("../bin/arvore_prim.in", std::ios::binary | std::ios::trunc | std::ios::in | std::ios::out);
     std::ofstream estatistica_arv_prim("../data/estatistica.txt"); // Para escrever a quantidade de blocos e não precisar ficar recalculando
 
 
@@ -359,9 +363,9 @@ int cria_arvore_primaria() { // Função pra criar e povoar a árvore em memoria
     arvore.write(reinterpret_cast<char*>(&offsetAtual), sizeof(Offset));
     arvore.flush();
 
-    std::vector<Offset> nivelAtual = construirFolhas(arvore, dados, offsetAtual);
+    std::vector<Offset> nivelAtual = construirFolhas_prim(arvore, dados, offsetAtual);
     while (nivelAtual.size() > 1)
-        nivelAtual = construirNivelInterno(arvore, nivelAtual, offsetAtual);
+        nivelAtual = construirNivelInterno_prim(arvore, nivelAtual, offsetAtual);
 
     raizOffset = nivelAtual[0];
     arvore.seekp(0, std::ios::beg);
@@ -374,8 +378,8 @@ int cria_arvore_primaria() { // Função pra criar e povoar a árvore em memoria
         std::cerr << "Erro ao abrir estatistica.txt\n";
         return 1;
     }
-    estatistica_arv_prim << "Total de blocos do arquivo de dados: " << totalBlocosCriados << "\n";
-    totalBlocosCriados = 0; // Reseto a variavel pra não acumular infinitamente
+    estatistica_arv_prim << "Total de blocos do arquivo de dados: " << totalBlocosCriados_prim << "\n";
+    totalBlocosCriados_prim = 0; // Reseto a variavel pra não acumular infinitamente
 
     //Fecho os arquivo
     dados.close();

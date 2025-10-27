@@ -79,4 +79,6 @@ void lerEImprimirRegistro_sec(const std::vector<Offset>& offsetsRegistros);
 
 int cria_arvore_secundaria();
 
+void verificar_titulo_em_dados(const std::string& titulo_procurado);
+
 #endif
