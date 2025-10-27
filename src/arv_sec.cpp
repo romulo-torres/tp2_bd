@@ -150,10 +150,10 @@ std::vector<Offset> construirFolhas_sec(std::fstream &arvore, std::ifstream &dad
     registro reg;
     char tituloTruncado[301];  
     
-    // DEBUG
-    std::cout << "DEBUG: Tamanho do campo titulo no struct: " << sizeof(reg.titulo) << std::endl;
-    std::cout << "DEBUG: Primeiros 5 títulos processados:" << std::endl;
-    int debug_count = 0;
+    // // DEBUG
+    // std::cout << "DEBUG: Tamanho do campo titulo no struct: " << sizeof(reg.titulo) << std::endl;
+    // std::cout << "DEBUG: Primeiros 5 títulos processados:" << std::endl;
+    // int debug_count = 0;
 
     while (dados.read(reinterpret_cast<char*>(&reg), sizeof(registro))) {
         Offset offsetDoRegistro = static_cast<Offset>(dados.tellg()) - static_cast<Offset>(sizeof(registro));
@@ -164,7 +164,7 @@ std::vector<Offset> construirFolhas_sec(std::fstream &arvore, std::ifstream &dad
         mapaChaves[tituloProcessado].push_back(offsetDoRegistro);
     }
 
-    std::cout << "DEBUG: Total de títulos únicos indexados: " << mapaChaves.size() << std::endl;
+    // std::cout << "DEBUG: Total de títulos únicos indexados: " << mapaChaves.size() << std::endl;
 
     std::vector<Offset> offsetsFolhas;
     NoFolha_sec folha; 
@@ -302,9 +302,9 @@ std::vector<Offset> buscarNaArvoreBPlus_sec(std::fstream &arvore, const char* ch
     char chaveBuscaProcessada[301];
     normalizar_string(chaveBuscaProcessada, chaveBusca, 300);
 
-    std::cout << "DEBUG BUSCA: Título original: \"" << chaveBusca << "\"" << std::endl;
-    std::cout << "DEBUG BUSCA: Título processado: \"" << chaveBuscaProcessada << "\"" << std::endl;
-    std::cout << "DEBUG BUSCA: Comprimento processado: " << strlen(chaveBuscaProcessada) << " caracteres" << std::endl;
+    // std::cout << "DEBUG BUSCA: Título original: \"" << chaveBusca << "\"" << std::endl;
+    // std::cout << "DEBUG BUSCA: Título processado: \"" << chaveBuscaProcessada << "\"" << std::endl;
+    // std::cout << "DEBUG BUSCA: Comprimento processado: " << strlen(chaveBuscaProcessada) << " caracteres" << std::endl;
 
     while (currentOffset != -1) {
         // 1) Ler apenas o cabeçalho (bool) para saber o tipo do nó
@@ -329,9 +329,9 @@ std::vector<Offset> buscarNaArvoreBPlus_sec(std::fstream &arvore, const char* ch
             blocosLidos++;
 
             // DEBUG: imprimir primeiras chaves
-            std::cout << "DEBUG: Folha tem " << folha.nChaves << " chaves" << std::endl;
-            for (int k = 0; k < std::min<uint32_t>(folha.nChaves, 3); ++k)
-                std::cout << "DEBUG: Chave " << k << ": \"" << folha.chaves[k].titulo << "\"" << std::endl;
+            // std::cout << "DEBUG: Folha tem " << folha.nChaves << " chaves" << std::endl;
+            // for (int k = 0; k < std::min<uint32_t>(folha.nChaves, 3); ++k)
+            //     std::cout << "DEBUG: Chave " << k << ": \"" << folha.chaves[k].titulo << "\"" << std::endl;
 
             // 3) Busca binária na folha
             int inicio = 0;
